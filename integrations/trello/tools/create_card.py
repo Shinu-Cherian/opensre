@@ -24,28 +24,35 @@ class CreateTrelloCardTool(BaseTool):
         "Adding action items from an incident postmortem",
         "Tracking remediation steps during an active incident",
     ]
-    requires = ["api_key", "token", "name", "desc"]
-    injected_params = ["api_key", "token", "board_id", "list_id"]
+    requires = ["api_key", "token", "list_id", "name", "desc"]
+    injected_params = ["api_key", "token"]
     input_schema = {
         "type": "object",
         "properties": {
             "api_key": {"type": "string", "description": "Trello API key"},
             "token": {"type": "string", "description": "Trello token"},
             "board_id": {"type": "string", "description": "Trello Board ID (optional)"},
-            "list_id": {"type": "string", "description": "Trello List ID"},
+            "list_id": {
+                "type": "string",
+                "description": "Trello List ID (optional if configured in environment)",
+            },
             "name": {"type": "string", "description": "Title of the card"},
             "desc": {"type": "string", "description": "Detailed description for the card"},
         },
         "required": ["api_key", "token", "name", "desc"],
     }
     outputs = {
-        "id": "The ID of the created card",
+        "card_id": "The ID of the created card",
         "url": "The URL of the created card",
     }
 
     def is_available(self, sources: dict) -> bool:
         trello_config = sources.get("trello", {})
-        return bool(trello_config.get("api_key") and trello_config.get("token"))
+        return bool(
+            trello_config.get("api_key")
+            and trello_config.get("token")
+            and trello_config.get("list_id")
+        )
 
     def extract_params(self, sources: dict) -> dict[str, Any]:
         trello = sources.get("trello", {})
@@ -84,12 +91,16 @@ class CreateTrelloCardTool(BaseTool):
             }
         )
 
+        target_list_id = (list_id or config.list_id).strip()
+        if not target_list_id:
+            return tool_unavailable("trello", "List ID is required to create a Trello card.")
+
         try:
             result = create_trello_card(
                 config=config,
                 name=name,
                 desc=desc,
-                list_id=list_id if list_id else None,
+                list_id=target_list_id,
             )
             return {
                 "source": "trello",

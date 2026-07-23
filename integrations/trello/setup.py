@@ -32,9 +32,9 @@ TRELLO_SETUP = IntegrationSetupSpec(
         SetupField(
             name="list_id",
             label="List ID",
-            prompt="Trello List ID (optional)",
+            prompt="Trello List ID",
             env_var="TRELLO_LIST_ID",
-            optional=True,
+            optional=False,
         ),
     ),
     verify=verify_trello,
