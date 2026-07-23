@@ -999,26 +999,6 @@ def load_env_integrations() -> list[dict[str, Any]]:
             discord_config = DiscordBotConfig.model_validate(
                 {
                     "bot_token": discord_bot_token,
-                }
-            )
-        except Exception as exc:
-            _report_env_loader_failure(exc, integration="discord")
-        else:
-            integrations.append(
-                _active_env_record(
-                    "discord",
-                    discord_config.model_dump(exclude={"integration_id"}),
-                )
-            )
-
-    trello_config = trello_config_from_env()
-    if trello_config:
-        integrations.append(
-            _active_env_record(
-                "trello",
-                trello_config.model_dump(exclude={"integration_id"}),
-            )
-        )
                     "application_id": os.getenv("DISCORD_APPLICATION_ID", "").strip(),
                     "public_key": os.getenv("DISCORD_PUBLIC_KEY", "").strip(),
                     "default_channel_id": os.getenv("DISCORD_DEFAULT_CHANNEL_ID", "").strip()
@@ -1029,6 +1009,15 @@ def load_env_integrations() -> list[dict[str, Any]]:
             _report_env_loader_failure(exc, integration="discord")
         else:
             integrations.append(_active_env_record("discord", discord_config.model_dump()))
+
+    trello_config = trello_config_from_env()
+    if trello_config:
+        integrations.append(
+            _active_env_record(
+                "trello",
+                trello_config.model_dump(exclude={"integration_id"}),
+            )
+        )
 
     airflow_config = airflow_config_from_env()
     if airflow_config is not None:
