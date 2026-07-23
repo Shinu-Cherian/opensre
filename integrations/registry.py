@@ -384,7 +384,13 @@ INTEGRATION_SPECS: tuple[IntegrationSpec, ...] = (
         setup_order=40,
         verify_order=54,
     ),
-    IntegrationSpec(service="trello"),
+    IntegrationSpec(
+        service="trello",
+        has_verifier=True,
+        direct_effective=True,
+        setup_order=43,
+        verify_order=57,
+    ),
     IntegrationSpec(service="rds", setup_order=11),
     IntegrationSpec(
         service="supabase",

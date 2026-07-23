@@ -43,6 +43,7 @@ from surfaces.cli.wizard.configurators.productivity import (
     _configure_jira,
     _configure_notion,
     _configure_servicenow,
+    _configure_trello,
 )
 from surfaces.cli.wizard.configurators.sentry import _configure_sentry, _configure_sentry_mcp
 from surfaces.cli.wizard.configurators.vercel import _configure_vercel
@@ -98,6 +99,7 @@ def _configure_selected_integrations() -> tuple[list[str], str | None]:
         "betterstack": _configure_betterstack,
         "jira": _configure_jira,
         "servicenow": _configure_servicenow,
+        "trello": _configure_trello,
         "alertmanager": _configure_alertmanager,
         "opsgenie": _configure_opsgenie,
         "pagerduty": _configure_pagerduty,
@@ -131,6 +133,7 @@ def _configure_selected_integrations() -> tuple[list[str], str | None]:
         "dagster": "dagster",
         "jira": "jira",
         "servicenow": "servicenow",
+        "trello": "trello",
         "alertmanager": "alertmanager",
         "opsgenie": "opsgenie",
         "pagerduty": "pagerduty",

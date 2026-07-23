@@ -95,6 +95,20 @@ def _configure_servicenow() -> tuple[str, str]:
     )
 
 
+def _configure_trello() -> tuple[str, str]:
+    from integrations.trello.setup import TRELLO_SETUP
+
+    return configure_from_spec(
+        TRELLO_SETUP,
+        title="Trello",
+        intro=(
+            "\n[bold]Trello Integration[/bold]\n"
+            "Create a Power-Up and generate an API key and token at "
+            "https://trello.com/power-ups/admin\n"
+        ),
+    )
+
+
 def _configure_google_docs() -> tuple[str, str]:
     _, credentials = _integration_defaults("google_docs")
     while True:
