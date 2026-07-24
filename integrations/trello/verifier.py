@@ -1,16 +1,27 @@
 """Trello credential and connectivity verification."""
 
+from __future__ import annotations
+
 import logging
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
 
 import integrations.trello.client as client
 from integrations._validation_helpers import report_validation_failure
-from integrations.trello.config import build_trello_config
+from integrations.trello.config import TrelloConfig, build_trello_config
 from integrations.verification import register_verifier, result
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class TrelloValidationResult:
+    """Result container for legacy Trello validation callers."""
+
+    ok: bool
+    detail: str
 
 
 @register_verifier("trello")
@@ -43,6 +54,17 @@ def verify_trello(source: str, config: dict[str, Any]) -> dict[str, str]:
             err,
             logger=logger,
             integration="trello",
-            method="verify_trello",
+            method="validate_trello_config",
         )
-        return result("trello", source, "error", f"Trello validation failed: {err}")
+        return result("trello", source, "failed", f"Trello validation failed: {err}")
+
+
+def validate_trello_config(config: TrelloConfig) -> TrelloValidationResult:
+    """Backward-compatible validation helper for legacy callers and test suites."""
+    raw_config = config.model_dump()
+    res = verify_trello("config", raw_config)
+    ok = res.get("status") == "passed"
+    return TrelloValidationResult(ok=ok, detail=res.get("detail", ""))
+
+
+__all__ = ["TrelloValidationResult", "validate_trello_config", "verify_trello"]
