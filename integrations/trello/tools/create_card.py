@@ -15,6 +15,9 @@ class CreateTrelloCardTool(BaseTool):
 
     name = "create_trello_card"
     source = "trello"
+    side_effect_level = "mutating"
+    requires_approval = True
+    approval_reason = "Creating a Trello card alters project boards and creates external tasks."
     description = (
         "Create a new card in Trello to track incident resolution, action items, "
         "or postmortem tasks. Requires the name and description of the card."

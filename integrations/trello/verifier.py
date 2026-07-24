@@ -54,17 +54,26 @@ def verify_trello(source: str, config: dict[str, Any]) -> dict[str, str]:
             err,
             logger=logger,
             integration="trello",
-            method="validate_trello_config",
+            method="verify_trello",
         )
         return result("trello", source, "failed", f"Trello validation failed: {err}")
 
 
 def validate_trello_config(config: TrelloConfig) -> TrelloValidationResult:
     """Backward-compatible validation helper for legacy callers and test suites."""
-    raw_config = config.model_dump()
-    res = verify_trello("config", raw_config)
-    ok = res.get("status") == "passed"
-    return TrelloValidationResult(ok=ok, detail=res.get("detail", ""))
+    try:
+        raw_config = config.model_dump()
+        res = verify_trello("config", raw_config)
+        ok = res.get("status") == "passed"
+        return TrelloValidationResult(ok=ok, detail=res.get("detail", ""))
+    except Exception as err:
+        report_validation_failure(
+            err,
+            logger=logger,
+            integration="trello",
+            method="validate_trello_config",
+        )
+        return TrelloValidationResult(ok=False, detail=f"Trello validation failed: {err}")
 
 
 __all__ = ["TrelloValidationResult", "validate_trello_config", "verify_trello"]

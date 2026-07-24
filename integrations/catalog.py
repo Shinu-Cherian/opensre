@@ -117,6 +117,7 @@ def load_env_integration_services() -> list[str]:
     add("pagerduty", _env_is_set("PAGERDUTY_API_KEY"))
     add("incident_io", _env_is_set("INCIDENT_IO_API_KEY"))
     add("jira", _all_env("JIRA_BASE_URL", "JIRA_EMAIL", "JIRA_API_TOKEN"))
+    add("trello", _all_env("TRELLO_API_KEY", "TRELLO_TOKEN"))
     add(
         "servicenow",
         _all_env("SERVICENOW_INSTANCE_URL", "SERVICENOW_USERNAME", "SERVICENOW_PASSWORD"),
