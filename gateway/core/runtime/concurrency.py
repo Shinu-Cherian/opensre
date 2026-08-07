@@ -1,12 +1,14 @@
-"""Process-wide turn concurrency shared by every Gateway ingress."""
+"""Process-wide turn concurrency shared by every Gateway ingress.
+
+Production chat turns take the gate via :class:`GatewayTurnHandler` (``gate=``).
+A callback wrapper for arbitrary handlers lives under ``gateway/tests/`` only —
+see ``gateway/tests/runtime/concurrency_limited_handler.py``.
+"""
 
 from __future__ import annotations
 
-import logging
 import threading
 
-from core.agent_harness.session import SessionCore
-from gateway.core.runtime.sink_protocol import GatewayAgentCallback, GatewaySink
 from platform.deployment_contracts.models import SizeProfile
 
 _PROFILE_LIMITS = {
@@ -14,6 +16,19 @@ _PROFILE_LIMITS = {
     SizeProfile.MEDIUM: 2,
     SizeProfile.LARGE: 4,
 }
+
+
+def turn_limit_for_profile(profile: SizeProfile | str | None = None) -> int:
+    """Process-gate / transport-pool default for ``OPENSRE_SIZE_PROFILE``.
+
+    When ``profile`` is omitted, reads the env (default SMALL). Used by
+    :class:`TurnConcurrencyGate` and as the default for per-transport
+    ``max_concurrent_turns`` when the transport-specific env is unset.
+    """
+    import os
+
+    raw = profile if profile is not None else os.getenv("OPENSRE_SIZE_PROFILE", "SMALL")
+    return _PROFILE_LIMITS[SizeProfile(str(raw).strip().upper())]
 
 
 class TurnConcurrencyGate:
@@ -28,7 +43,7 @@ class TurnConcurrencyGate:
     @classmethod
     def for_profile(cls, profile: SizeProfile | str) -> TurnConcurrencyGate:
         """Build the documented concurrency limit for a Fargate size profile."""
-        return cls(_PROFILE_LIMITS[SizeProfile(profile)])
+        return cls(turn_limit_for_profile(profile))
 
     def try_acquire(self) -> bool:
         """Take one slot without waiting, leaving durable excess work queued."""
@@ -45,46 +60,7 @@ class TurnConcurrencyGate:
         self._semaphore.release()
 
 
-class ConcurrencyLimitedTurnHandler:
-    """Apply a shared capacity gate without changing ``GatewayTurnHandler``."""
-
-    def __init__(
-        self,
-        *,
-        handler: GatewayAgentCallback,
-        gate: TurnConcurrencyGate,
-        busy_message: str = "OpenSRE is at capacity. Please try again shortly.",
-    ) -> None:
-        self._handler = handler
-        self._gate = gate
-        self._busy_message = busy_message
-
-    def __call__(
-        self,
-        text: str,
-        session: SessionCore,
-        sink: GatewaySink,
-        logger: logging.Logger,
-    ) -> None:
-        if not self._gate.try_acquire():
-            sink.finalize(self._busy_message)
-            return
-        try:
-            self._handler(text, session, sink, logger)
-        finally:
-            self._gate.release()
-
-
-def gated_callback(
-    handler: GatewayAgentCallback,
-    gate: TurnConcurrencyGate,
-) -> GatewayAgentCallback:
-    """Return the callback form expected by Telegram and Slack wiring."""
-    return ConcurrencyLimitedTurnHandler(handler=handler, gate=gate)
-
-
 __all__ = [
-    "ConcurrencyLimitedTurnHandler",
     "TurnConcurrencyGate",
-    "gated_callback",
+    "turn_limit_for_profile",
 ]
