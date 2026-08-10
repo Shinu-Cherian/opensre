@@ -17,7 +17,12 @@ from core.agent_harness.session.pending_offer import (
     arm_pending_investigation_offer,
     finalize_gather_investigation_offer,
 )
-from core.agent_harness.session.session_goal import session_goal_is_active
+from core.agent_harness.session.session_goal import (
+    SessionGoal,
+    SessionGoalStatus,
+    session_goal_is_active,
+)
+from core.agent_harness.session.want_me_to import strip_want_me_to_closer
 from core.agent_harness.tools.tool_context import capability_not_explicitly_disabled
 from core.agent_harness.turns.evidence_need import (
     EvidenceNeed,
@@ -32,6 +37,22 @@ from core.agent_harness.turns.handoff_policy import (
 )
 from core.agent_harness.turns.turn_route import RouteIntent
 from platform.harness_ports import integration_setup_command
+
+
+def should_suppress_want_me_to_for_session_goal(session: SessionStore) -> bool:
+    """True while an outer goal is active, or a host-owned goal just achieved.
+
+    Evaluate often marks ACHIEVED before answer finalize runs. Suppressing only
+    on ``session_goal_is_active`` lets Want-me-to leak on the achieving turn.
+    """
+    if session_goal_is_active(session):
+        return True
+    goal = getattr(session, "session_goal", None)
+    return (
+        isinstance(goal, SessionGoal)
+        and goal.host_owned
+        and goal.status == SessionGoalStatus.ACHIEVED
+    )
 
 
 @dataclass(frozen=True)
@@ -129,9 +150,13 @@ def finalize_routed_answer(
     # Bookkeeping only — never feed this into route selection.
     text_changed_after_streaming = text != streamed_text
 
-    suppress_investigate = should_suppress_investigation_offer(
-        evidence_need
-    ) or session_goal_is_active(session)
+    suppress_for_goal = should_suppress_want_me_to_for_session_goal(session)
+    suppress_investigate = should_suppress_investigation_offer(evidence_need) or suppress_for_goal
+    if suppress_investigate:
+        stripped = strip_want_me_to_closer(text)
+        if stripped != text:
+            text = stripped
+            text_changed_after_streaming = True
     finish_stream = False
     if (
         not confirms_pending
@@ -159,7 +184,11 @@ def finalize_routed_answer(
             )
             if route_intent == "gather_and_answer":
                 finish_stream = True
-    elif route_intent == "gather_and_answer" and text_changed_after_streaming:
+    elif route_intent == "gather_and_answer" and (
+        text_changed_after_streaming or suppress_for_goal
+    ):
+        # Flush deferred Want-me-to (or drop it) when a session goal owns
+        # continuation — otherwise the TTY keeps a streamed closer.
         finish_stream = True
 
     return AnswerFinalizeResult(response_text=text, finish_stream=finish_stream)
@@ -170,4 +199,5 @@ __all__ = [
     "append_upgrade_cta",
     "finalize_routed_answer",
     "finish_streamed_response",
+    "should_suppress_want_me_to_for_session_goal",
 ]
