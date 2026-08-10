@@ -74,6 +74,37 @@ HANDOFF_GUIDANCE: dict[str, str] = {
         "mean, do NOT ask for alert context, and do NOT suggest starting a new "
         "investigation.\n\n"
     ),
+    # Metric/read ask with the authoritative integration missing.
+    # Prefix key: ``build_handoff_guidance_block`` matches ``evidence_tier:L0_degraded:…``.
+    "evidence_tier:L0_degraded": (
+        "The turn's authoritative live source is NOT connected in this session "
+        "(evidence tier L0_degraded; the service id is the suffix after "
+        "`evidence_tier:L0_degraded:`). Finish a useful answer without live "
+        "data — do not stall on discovery or empty tool lists.\n"
+        "Structure the reply like this:\n"
+        "1. One plain sentence: you cannot return a live count because that "
+        "source is not connected (name it).\n"
+        "2. How to measure once connected (e.g. confirm the OS property name "
+        "in the schema — `$os` vs `$os_name`).\n"
+        "3. A short draft query in a fenced code block, clearly labeled as a "
+        "draft to verify after connect — never invent metric numbers as fact.\n"
+        "Never claim the source is connected, never imply a live query already "
+        "ran. Do NOT offer a full incident investigation. Do NOT close with "
+        "**Want me to:** (no live query offer, no investigation offer). "
+        "Do NOT thrash on empty tool listings. The harness appends one "
+        "integration upgrade CTA after your reply — do not duplicate that CTA "
+        "and do not open an onboarding wizard unprompted. A bare user yes after "
+        "that CTA will run the connect slash; do not invent a second Want-me-to.\n\n"
+    ),
+    # Outer SessionGoal checklist progress (host loop / continuation nudges).
+    "session_goal:": (
+        "An outer session goal is active. When you finish a checklist item, "
+        "include the structured tag `session_goal:done=<0-based-index>` "
+        "(comma-separate multiple). When every item is done, include "
+        "`session_goal:achieved`. Put those tags on their own at the end of "
+        "the reply; the harness strips them before the user sees the text. "
+        "Do not ask whether to continue while the goal is active.\n\n"
+    ),
     # Prefix key: ``build_handoff_guidance_block`` matches any
     # ``database_query:<topic>`` tag (mysql_active_connections, mariadb_dashboard, …).
     "database_query:": (

@@ -19,9 +19,29 @@ are separate layers.
 |------|------|
 | Process boot (once) | `configure_process(PROFILE)` — adapters only; not agent construction |
 | Happy path | `AgentSession.start()` → repeated `.chat` / `.investigate` |
+| Multi-step / keep-going | `AgentSession.start()` → `.chat_until_goal(...)` (outer `SessionGoal` loop) |
 | Custom host | **`build_default_headless_agent(...)`** (only factory) → `attach_agent` once → many `.chat` |
-| Gateway | `SessionAgentPool` → factory once / session → `bind_turn` → `.chat` |
+| Gateway | `SessionAgentPool` → factory once / session → `bind_turn` → `run_until_session_goal` (same outer policy as shell) |
 | Scheduled one-shot | `AgentSession.run_headless_turn(...)` (not the multi-turn pattern) |
+
+Outer `SessionGoal` (`session/session_goal.py` + `turns/session_goal_loop.py`) is
+**not** the inner ReAct `Goal` / `goal_review`. While a session goal is active,
+`run_turn` suppresses investigation Want-me-to closers.
+
+**Evidence kinds (open/closed):** vocabulary + per-kind policy live in
+`turns/evidence_kind.py` (`EvidenceKind` + `EvidenceKindPolicy`). Add a kind by
+extending the enum and registering its policy row — do **not** grow
+`if kind is …` branches in `classify_evidence_need`. Tool schema `enum` is
+`EVIDENCE_KIND_VALUES` (derived), not a parallel hard-coded list. Preferred
+integration ids stay opt-in via `platform.harness_ports.register_preferred_evidence_source`.
+
+**No keyword intent routing around the action agent.** Do not scan user text
+with regex/keywords to skip gather, attach goals, or bypass `execute_actions`.
+Policy keys off typed `AssistantHandoff` (`turns/assistant_handoff.py`) —
+schema fields first; content tags are decode fallback only. Legacy tag tuples
+(`evidence_kind:…`, `session_goal:…`, `session_goal_item:…`, `database_query:…`)
+and explicit host APIs remain for older readers. Checklist progress uses
+`session_goal:done=<index>` in replies.
 
 Do **not** duplicate the default port stack outside `build_default_headless_agent`.
 Shell uses a TTY `ChatDispatcher` (same `AgentSession.chat` / `run_turn`) —
@@ -70,13 +90,22 @@ subpackage. Default port implementations live with the concern they serve, not i
   single instantiation site for `core.agent.Agent` across all surfaces
   (action, evidence, gateway). See "Agent construction pattern" below.
 - `turns/` — the turn drivers that orchestrate `core.agent.Agent`:
-  - `orchestrator.py` — `run_turn`: the three-path routing
-    (summarize-observation / handled / gather+answer). Resolves integrations
-    **once** at the top of the turn onto the frozen `turn_snapshot`, so
-    `turn_snapshot.resolved_integrations` is the single source of truth for
-    what the turn knows. Downstream components (e.g.
+  - `orchestrator.py` — `run_turn` sequences three seams (do not merge them):
+    1. **route decide** — pure `turn_route.route_turn` (no I/O, no stream flags)
+    2. **route execute** — summarize / handled / gather+answer effects
+    3. **answer finalize** — `answer_finalize.finalize_routed_answer` (CTA,
+       Want-me-to, stream flush). Stream rewrite locals
+       (`text_changed_after_streaming`) stay inside finalize and must **never**
+       gate route selection.
+    Resolves integrations **once** at the top of the turn onto the frozen
+    `turn_snapshot`, so `turn_snapshot.resolved_integrations` is the single
+    source of truth for what the turn knows. Downstream components (e.g.
     `action_driver._resolved_integrations_for_turn`) read it from there rather
     than re-resolving. Do NOT reintroduce per-component integration resolution.
+  - `turn_route.py` / `answer_finalize.py` / `handoff_policy.py` — the seams
+    above, extracted so post-answer bookkeeping cannot regress into routing.
+  - Outer `SessionGoal` vs local shell multi-step are also separate concerns:
+    prompt fragments in `prompts/action/multi_step_policy.py`.
   - `action_driver.py` — `ActionTurnRunner`: one action tool-calling turn
     over the ports, via a `_build_action_agent` factory that returns an
     `ActionTurnPlan`.

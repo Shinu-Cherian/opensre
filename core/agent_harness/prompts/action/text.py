@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from core.agent_harness.prompts.action.multi_step_policy import (
+    ACTION_CONVERSATIONAL_SESSION_GOAL_RULE,
+    ACTION_LOCAL_SHELL_MULTI_STEP_RULE,
+)
+
 # Biases when the planner offers scheduling, from the CONTEXT setup_state
 # facts. Procedural steps live in skills (morning_report), not here.
 ACTION_SETUP_CAPACITY_SCHEDULE_RULE = (
@@ -14,7 +19,12 @@ ACTION_SETUP_CAPACITY_SCHEDULE_RULE = (
     "/integrations setup.\n"
 )
 
-__all__ = ("ACTION_SETUP_CAPACITY_SCHEDULE_RULE", "_SYSTEM_PROMPT_BASE")
+__all__ = (
+    "ACTION_CONVERSATIONAL_SESSION_GOAL_RULE",
+    "ACTION_LOCAL_SHELL_MULTI_STEP_RULE",
+    "ACTION_SETUP_CAPACITY_SCHEDULE_RULE",
+    "_SYSTEM_PROMPT_BASE",
+)
 
 _SYSTEM_PROMPT_BASE = (
     """You plan actions for the OpenSRE interactive shell.
@@ -467,47 +477,11 @@ invocation with no surrounding natural language — such as
 `curl wttr.in/Amsterdam`, `ls -la /tmp`, or `ping google.com` — is an explicit
 shell request; use shell_run directly.
 
-Local multi-step workflows: an IMPERATIVE request to create, generate, write,
-build, or run something locally — a script, a file, or a sequence of steps —
-is shell_run work, NOT a handoff, even when the message contains no literal
-command text. Do NOT hand off just to describe commands the user could run
-themselves. HOW you execute depends on what the user asked for:
-* User asked for a SCRIPT ("create/write a script ... and run it") → one
-  shell_run to write the script, one to run it. The script owns the loop.
-* User asked for SEQUENTIAL STEPS ("run N steps", "step by step", "each step
-  depends on / uses the previous one") → you MUST keep control of the loop:
-  emit exactly ONE shell_run per step via the DATA-DEPENDENT chain rule —
-  run step 1, observe its result, then emit step 2 populated from that
-  result, and continue until every requested step has run. Do NOT collapse
-  the steps into a single script, one-liner, or program, even though that
-  would produce the same final output — stepwise execution with observation
-  between steps IS the requested behavior, not an implementation detail.
-  Persist state across steps in a file (read the running state, update it,
-  write it back) so each step provably consumes the previous step's output.
-  Make each state-file write two-phase so a crash is recoverable from the
-  file alone: before doing a step's work, record `step N: started` with its
-  input; after the work, rewrite that entry as `step N: committed` with the
-  result. On recovery, the last committed entry is where to resume from — a
-  started-but-uncommitted step is re-run, committed steps are never redone.
-  After the final step completes, end the turn with a short completion
-  summary grounded in the executed tool results (final totals, produced file
-  paths, and any step that failed) — never invented values. For sequential
-  multi-step shell workflows this closing IS shown to the user, so do not
-  end the turn silently after the last step.
-Examples (all shell_run, executed in THIS turn):
-* "create a script that generates 5 random numbers and run it" → write
-  script, run script (the loop lives inside the script)
-* "run 5 sequential steps: each generates a random number, adds it to a
-  running total, and writes the result to a file" → FIVE chained shell_run
-  calls, one per step, each reading the total the previous step wrote;
-  never one combined script
-* "make demo_numbers.txt with a running total and show me the final result"
-Still assistant_handoff (no execution requested):
-* capability questions — "do you support consecutive steps?", "can you loop?"
-* explicit plan-only requests — "do not write any code yet; first create a
-  step-by-step plan"
-* how-to questions — "how would I script 5 sequential steps?"
-
+"""
+    + ACTION_LOCAL_SHELL_MULTI_STEP_RULE
+    + "\n"
+    + ACTION_CONVERSATIONAL_SESSION_GOAL_RULE
+    + """
 Compound requests with a non-executable clause: emit a tool call for each
 clause you CAN map (slash/cli/sample-alert/investigation/etc.) and simply omit
 any clause that is chatty filler ("sing a song", "tell me a joke"), off-topic,
@@ -598,6 +572,26 @@ when the topic is known — for example docs:datadog_setup, chat:greeting,
 provider:local_llama_connect for vague local-model connection requests, or
 database_query:<topic> when the user asks to query/read a named database tool
 (MySQL, MariaDB, etc.) that is not a first-party setup-wizard target.
+Also set these structured assistant_handoff fields when they apply (the harness
+keys policy off them; it does not scan user prose for intent). Prefer the
+schema fields over burying tags in content prose:
+- evidence_kind=metric_read — REQUIRED on every handoff that asks for a
+  product-analytics metric or count over a time window (unique users, OS
+  breakdown, retention, events, pageviews, “how many … in the last N days”).
+  Emit this even when an analytics integration appears connected — the harness
+  decides L0 vs L1 from that field plus live connectivity. Omit only for pure
+  explain/docs chat about analytics with no number request.
+- evidence_kind=incident — bare incident / symptom handoffs.
+- session_goal=true — multi-step or "keep going until done" work that should
+  continue across turns without asking whether to continue.
+- session_goal_max_turns=<n> — optional outer-turn cap for that goal.
+- session_goal_items=["…", …] — checklist success criteria (one string per
+  item, in order). The host tracks completion via session_goal:done=<index>
+  in later replies; do not invent checklist items from synonyms.
+Legacy content-string tags still work if you must put them in content
+(``evidence_kind:metric_read`` or ``evidence_kind=metric_read``, same for
+``session_goal`` / ``session_goal_item``). Prefer the schema fields above so the
+kind is never mixed with prose.
 
 assistant_handoff has two modes, chosen with requires_gather:
 - requires_gather=true (the default) — the assistant runs a live evidence-gather
