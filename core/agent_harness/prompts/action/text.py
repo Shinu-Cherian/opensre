@@ -580,23 +580,32 @@ schema fields over burying tags in content prose:
   breakdown, retention, events, pageviews, “how many … in the last N days”).
   Emit this even when an analytics integration appears connected — the harness
   decides L0 vs L1 from that field plus live connectivity. Omit only for pure
-  explain/docs chat about analytics with no number request.
+  explain/docs chat about analytics with no number request. Also set
+  session_goal=true on these handoffs so the host continues until the number
+  is delivered (the host derives attach from metric_read when the flag is
+  omitted; prefer setting the boolean explicitly).
 - evidence_kind=incident — bare incident / symptom handoffs.
 - session_goal=true — REQUIRED on every handoff for multi-step or
   "keep going until done" chat checklists / walkthroughs (no local shell
-  work). The host outer loop keys off this boolean; omitting it drops
-  continuation. Prefer session_goal_items=["…", …] for checklist criteria.
-- session_goal_max_turns=<n> — optional outer-turn cap for that goal.
+  work), and for metric_read count questions. The host session-goal loop keys
+  off this boolean; omitting it drops continuation (except metric_read, which
+  the host treats as attach). Prefer session_goal_items=["…", …] for checklist
+  criteria.
+- session_goal_max_turns=<n> — optional session-goal turn cap for that goal.
 - session_goal_items=["…", …] — checklist success criteria (one string per
   item, in order). The host tracks completion via session_goal:done=<index>
   in later replies; do not invent checklist items from synonyms.
 When a host session goal is active (or you just emitted session_goal:achieved
-for one), finish the reply without a Want me to: closer — the outer loop owns
+for one), finish the reply without a Want me to: closer — the session-goal loop owns
 continuation; do not ask the user whether to continue or clear the goal.
 Never emit session_goal:achieved in the same turn as investigation_start —
 starting RCA is not finishing the goal. After investigation results (or other
 real tool answers) are in the reply and the condition's deliverables are met
 (issue id, count, next action, …), then emit session_goal:achieved.
+For metric_read / short checklists: when this turn's tools already produced
+the number and your reply reports it, finish the checklist in THAT reply —
+emit session_goal:done=0,1 (every completed index) and session_goal:achieved.
+Do not leave the host to run another outer turn that repeats the same answer.
 Legacy content-string tags still work if you must put them in content
 (``evidence_kind:metric_read`` or ``evidence_kind=metric_read``, same for
 ``session_goal`` / ``session_goal_item``). Prefer the schema fields above so the

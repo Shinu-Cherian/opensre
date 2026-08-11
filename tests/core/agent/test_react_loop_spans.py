@@ -10,7 +10,7 @@ import pytest
 
 from config.constants import OPENSRE_OPERATIONS_LOG_PATH_ENV
 from core.agent import Agent
-from core.agent_harness.session.persistence.jsonl_storage import JsonlSessionStorage
+from core.agent_harness.session.persistence.jsonl_store import JsonlSessionStore
 from core.llm.types import AgentLLMResponse, ToolCall
 from platform.observability.operations_log import read_operations
 from platform.observability.trace.spans import (
@@ -115,16 +115,16 @@ def _activate_trace(
     session_id: str,
 ) -> Path:
     monkeypatch.setattr(
-        "core.agent_harness.session.persistence.jsonl_storage.session_path",
+        "core.agent_harness.session.persistence.jsonl_store.session_path",
         lambda requested_session_id: tmp_path / f"{requested_session_id}.jsonl",
     )
-    storage = JsonlSessionStorage()
+    storage = JsonlSessionStore()
     path = tmp_path / f"{session_id}.jsonl"
     path.write_text(
         json.dumps({"type": "session", "version": 2, "id": session_id}) + "\n",
         encoding="utf-8",
     )
-    set_session_trace_store(JsonlSessionTraceStore(storage=storage))
+    set_session_trace_store(JsonlSessionTraceStore(store=storage))
     return path
 
 

@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from core.agent_harness.session import InMemorySessionStorage, SessionCore, SessionManager
+from core.agent_harness.session import InMemorySessionStore, SessionCore, SessionManager
 from core.agent_harness.session.pending_offer import PendingIntegrationSetupOffer
-from core.agent_harness.session.session_goal import (
+from core.agent_harness.session_goal.goal import (
     SessionGoal,
     SessionGoalStatus,
     attach_session_goal,
     session_goal_is_active,
 )
-from core.agent_harness.session.session_goal_persist import (
+from core.agent_harness.session_goal.persist import (
     SESSION_GOAL_STATE_CUSTOM_TYPE,
     apply_session_goal_state,
     session_goal_from_payload,
@@ -34,8 +34,23 @@ def test_session_goal_round_trips_through_payload() -> None:
     assert restored == goal
 
 
+def test_paused_session_goal_round_trips_through_payload() -> None:
+    goal = SessionGoal(
+        condition="finish checklist",
+        max_outer_turns=4,
+        status=SessionGoalStatus.PAUSED,
+        turns_used=2,
+        host_owned=True,
+        last_reason="paused by you",
+    )
+    restored = session_goal_from_payload(session_goal_to_payload(goal))
+    assert restored == goal
+    assert restored is not None
+    assert restored.status == SessionGoalStatus.PAUSED
+
+
 def test_session_goal_state_snapshot_includes_cta_and_pending() -> None:
-    session = SessionCore(storage=InMemorySessionStorage())
+    session = SessionCore(store=InMemorySessionStore())
     attach_session_goal(
         session,
         SessionGoal(condition="keep going", max_outer_turns=3, checklist=("one", "two")),
@@ -44,7 +59,7 @@ def test_session_goal_state_snapshot_includes_cta_and_pending() -> None:
     session.pending_integration_setup_offer = PendingIntegrationSetupOffer(service_id="posthog_mcp")
 
     snapshot = session_goal_state_snapshot(session)
-    other = SessionCore(storage=InMemorySessionStorage())
+    other = SessionCore(store=InMemorySessionStore())
     apply_session_goal_state(other, snapshot)
 
     assert session_goal_is_active(other)
@@ -56,8 +71,8 @@ def test_session_goal_state_snapshot_includes_cta_and_pending() -> None:
 
 
 def test_flush_persists_session_goal_state_and_restore_context_applies_it() -> None:
-    storage = InMemorySessionStorage()
-    session = SessionCore(storage=storage)
+    storage = InMemorySessionStore()
+    session = SessionCore(store=storage)
     storage.open_session(session)
     storage.append_turn(session, "chat", "start")
     attach_session_goal(
@@ -85,8 +100,8 @@ def test_flush_persists_session_goal_state_and_restore_context_applies_it() -> N
         if rec.get("custom_type") == SESSION_GOAL_STATE_CUSTOM_TYPE
     )
 
-    restored = SessionCore(storage=InMemorySessionStorage())
-    SessionManager(storage=InMemorySessionStorage()).restore_context(
+    restored = SessionCore(store=InMemorySessionStore())
+    SessionManager(store=InMemorySessionStore()).restore_context(
         restored,
         {
             "cli_agent_messages": [],
@@ -101,6 +116,44 @@ def test_flush_persists_session_goal_state_and_restore_context_applies_it() -> N
     assert restored.offered_upgrade_ctas == {"cta:posthog_mcp"}
 
 
+def test_flush_after_leaf_persists_paused_session_goal() -> None:
+    """End-of-turn flush writes a leaf; a later ``/goal pause`` must still land.
+
+    Gateway rebuilds from the last ``session_goal_state`` on the tip branch. If
+    flush no-ops on a trailing leaf, pause stays in memory only and the next
+    inbound turn resumes the pre-pause ACTIVE snapshot.
+    """
+    from core.agent_harness.session_goal.goal import SessionGoalReason, SessionGoalStatus
+
+    storage = InMemorySessionStore()
+    session = SessionCore(store=storage)
+    storage.open_session(session)
+    storage.append_turn(session, "chat", "start")
+    attach_session_goal(
+        session,
+        SessionGoal(condition="ship the fix", max_outer_turns=4, host_owned=True),
+    )
+    storage.flush(session)
+    assert storage.read(session.session_id)[-1].get("type") == "leaf"
+
+    paused = session.session_goal
+    assert paused is not None
+    attach_session_goal(
+        session,
+        paused.with_status(SessionGoalStatus.PAUSED).with_reason(SessionGoalReason.PAUSED_BY_USER),
+    )
+    storage.flush(session)
+
+    goal_records = [
+        rec
+        for rec in storage.read(session.session_id)
+        if rec.get("custom_type") == SESSION_GOAL_STATE_CUSTOM_TYPE
+    ]
+    assert len(goal_records) >= 2
+    assert goal_records[-1]["content"]["session_goal"]["status"] == "paused"
+    assert sum(1 for rec in storage.read(session.session_id) if rec.get("type") == "leaf") == 1
+
+
 def test_clearing_a_goal_writes_a_tombstone_so_resume_does_not_revive_it() -> None:
     """An empty flush after a prior goal must clear resume, not suppress the write.
 
@@ -108,11 +161,11 @@ def test_clearing_a_goal_writes_a_tombstone_so_resume_does_not_revive_it() -> No
     goal. Once a non-empty ``session_goal_state`` exists, a later clear must
     append a tombstone or resume keeps the old goal / CTA state authoritative.
     """
-    from core.agent_harness.session.session_goal import clear_session_goal
-    from core.agent_harness.session.session_goal_persist import session_goal_state_is_empty
+    from core.agent_harness.session_goal.goal import clear_session_goal
+    from core.agent_harness.session_goal.persist import session_goal_state_is_empty
 
-    storage = InMemorySessionStorage()
-    session = SessionCore(storage=storage)
+    storage = InMemorySessionStore()
+    session = SessionCore(store=storage)
     storage.open_session(session)
     storage.append_turn(session, "chat", "start")
     attach_session_goal(
@@ -125,9 +178,8 @@ def test_clearing_a_goal_writes_a_tombstone_so_resume_does_not_revive_it() -> No
     clear_session_goal(session)
     session.offered_upgrade_ctas.clear()
     session.pending_integration_setup_offer = None
-    # Continue past the first flush's leaf so a second flush can run (same as
-    # resume → more turns → close).
-    storage.append_turn(session, "chat", "after clear")
+    # Mid-session flush must write a tombstone even when the tip is already a
+    # trailing leaf (gateway ``/goal clear`` / pause after end-of-turn flush).
     storage.flush(session)
 
     goal_records = [
@@ -138,8 +190,8 @@ def test_clearing_a_goal_writes_a_tombstone_so_resume_does_not_revive_it() -> No
     assert len(goal_records) >= 2
     assert session_goal_state_is_empty(goal_records[-1]["content"])
 
-    restored = SessionCore(storage=InMemorySessionStorage())
-    SessionManager(storage=InMemorySessionStorage()).restore_context(
+    restored = SessionCore(store=InMemorySessionStore())
+    SessionManager(store=InMemorySessionStore()).restore_context(
         restored,
         {
             "cli_agent_messages": [],
@@ -163,17 +215,17 @@ def test_clearing_a_goal_is_persisted_so_resume_does_not_revive_it() -> None:
     restore reattaches something the user explicitly cleared.
     """
     # Arrange: a session that had a goal, flushed once.
-    from core.agent_harness.session.persistence.memory import InMemorySessionStorage
+    from core.agent_harness.session.persistence.memory import InMemorySessionStore
     from core.agent_harness.session.session_core import SessionCore
-    from core.agent_harness.session.session_goal import (
+    from core.agent_harness.session_goal.goal import (
         SessionGoal,
         attach_session_goal,
         clear_session_goal,
     )
-    from core.agent_harness.session.session_goal_persist import SESSION_GOAL_STATE_CUSTOM_TYPE
+    from core.agent_harness.session_goal.persist import SESSION_GOAL_STATE_CUSTOM_TYPE
 
-    storage = InMemorySessionStorage()
-    session = SessionCore(storage=storage)
+    storage = InMemorySessionStore()
+    session = SessionCore(store=storage)
     storage.open_session(session)
     session.record("cli_agent", "start", ok=True)
     attach_session_goal(session, SessionGoal(condition="finish it", max_outer_turns=3))

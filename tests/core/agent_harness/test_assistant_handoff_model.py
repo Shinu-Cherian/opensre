@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from core.agent_harness.session.session_goal import session_goal_from_assistant_handoffs
+from core.agent_harness.session_goal.goal import session_goal_from_assistant_handoffs
 from core.agent_harness.turns.assistant_handoff import AssistantHandoff
 from core.agent_harness.turns.evidence_need import EvidenceKind, classify_evidence_need
 
@@ -23,6 +23,36 @@ def test_content_equals_tag_fills_missing_schema_field() -> None:
     )
     assert handoff.evidence_kind is EvidenceKind.METRIC_READ
     assert "evidence_kind:metric_read" in handoff.to_handoff_contents()
+    # Content-only metric_read must still derive session_goal attach — otherwise
+    # run_until exits after one incomplete answer (live Windows-users miss).
+    assert handoff.session_goal is True
+    assert "session_goal:continue" in handoff.to_handoff_contents()
+
+
+def test_metric_read_schema_field_implies_session_goal_attach() -> None:
+    handoff = AssistantHandoff.from_tool_input(
+        {
+            "content": "what windows users number last 7 days?",
+            "evidence_kind": "metric_read",
+        }
+    )
+    assert handoff.session_goal is True
+    goal = session_goal_from_assistant_handoffs(
+        (handoff,), condition="what windows users number last 7 days?"
+    )
+    assert goal is not None
+
+
+def test_metric_read_explicit_session_goal_false_opts_out() -> None:
+    handoff = AssistantHandoff.from_tool_input(
+        {
+            "content": "one-shot count",
+            "evidence_kind": "metric_read",
+            "session_goal": False,
+        }
+    )
+    assert handoff.session_goal is False
+    assert session_goal_from_assistant_handoffs((handoff,)) is None
 
 
 def test_session_goal_fields_decode_to_model() -> None:

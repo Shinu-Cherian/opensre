@@ -1,11 +1,11 @@
-"""Outer SessionGoal: explicit/handoff attach, suppress Want-me-to, continue turns."""
+"""SessionGoal: explicit/handoff attach, suppress Want-me-to, continue turns."""
 
 from __future__ import annotations
 
 from core.agent_harness.accounting.turn_accounting import DefaultTurnAccounting
 from core.agent_harness.session.pending_offer import first_pending_offer
 from core.agent_harness.session.session_core import SessionCore
-from core.agent_harness.session.session_goal import (
+from core.agent_harness.session_goal.goal import (
     SessionGoal,
     SessionGoalStatus,
     attach_session_goal,
@@ -13,9 +13,9 @@ from core.agent_harness.session.session_goal import (
     session_goal_from_handoffs,
     session_goal_is_active,
 )
+from core.agent_harness.session_goal.run_until import run_until_session_goal
 from core.agent_harness.turns.assistant_handoff import AssistantHandoff
 from core.agent_harness.turns.orchestrator import run_turn
-from core.agent_harness.turns.session_goal_loop import run_until_session_goal
 from core.agent_harness.turns.turn_results import ToolCallingTurnResult, TurnResult
 
 _FIVE_STEP_ASK = (
@@ -128,7 +128,7 @@ def test_action_handoff_attaches_session_goal() -> None:
 
 
 def test_typed_assistant_handoff_attaches_session_goal_without_content_tags() -> None:
-    """Schema fields alone must attach and drive the outer loop.
+    """Schema fields alone must attach and drive the session-goal loop.
 
     Tag strings in ``handoff_contents`` are legacy; a planner that only fills
     ``session_goal`` / ``session_goal_items`` on the tool JSON must still win.
@@ -276,4 +276,107 @@ def test_without_goal_outer_loop_is_single_chat() -> None:
     outcome = run_until_session_goal(_chat, session, _FIVE_STEP_ASK)
 
     assert len(turns) == 1
+    assert outcome.turn_count == 1
     assert outcome.goal.status == SessionGoalStatus.CLEARED
+
+
+def test_metric_read_handoff_without_session_goal_flag_continues_outer_loop() -> None:
+    """``evidence_kind=metric_read`` alone attaches a goal so incomplete answers continue."""
+    ask = "how many Windows users in the last 7 days?"
+    session = SessionCore()
+    typed = AssistantHandoff.from_tool_input({"content": ask, "evidence_kind": "metric_read"})
+    assert typed.session_goal is True
+
+    def _execute(*_a: object, **_k: object) -> ToolCallingTurnResult:
+        return ToolCallingTurnResult(
+            planned_count=0,
+            executed_count=0,
+            executed_success_count=0,
+            has_unhandled_clause=True,
+            handled=False,
+            handoff_contents=(ask,),
+            assistant_handoffs=(typed,),
+        )
+
+    run_turn(
+        ask,
+        session,
+        execute_actions=_execute,
+        gather=lambda *_a, **_k: "schema only",
+        answer=lambda *_a, **_k: type(
+            "Run",
+            (),
+            {"response_text": "Schema found; no count yet."},
+        )(),
+        accounting=DefaultTurnAccounting(session, ask),
+    )
+    assert session_goal_is_active(session)
+
+    turns: list[str] = []
+
+    def _chat(message: str) -> TurnResult:
+        turns.append(message)
+        if len(turns) == 1:
+            body = "Still no number."
+        else:
+            body = "17 Windows users. session_goal:achieved"
+        return TurnResult(
+            final_intent="cli_agent_handled",
+            action_result=ToolCallingTurnResult(
+                planned_count=1,
+                executed_count=1,
+                executed_success_count=1,
+                has_unhandled_clause=False,
+                handled=True,
+            ),
+            assistant_response_text=body,
+            llm_run=None,
+        )
+
+    # Goal already active from the handoff turn — continue until achieved.
+    outcome = run_until_session_goal(_chat, session, ask)
+
+    assert len(turns) >= 2
+    assert outcome.goal.status == SessionGoalStatus.ACHIEVED
+    assert "17" in (outcome.last_result.assistant_response_text or "")
+
+
+def test_paused_goal_outer_loop_is_single_chat_without_turn_bump() -> None:
+    """``/goal pause`` keeps state; host must not continue or spend budget."""
+    session = SessionCore()
+    attach_session_goal(
+        session,
+        SessionGoal(
+            condition="finish later",
+            max_outer_turns=5,
+            status=SessionGoalStatus.PAUSED,
+            turns_used=2,
+            host_owned=True,
+        ),
+    )
+    turns: list[str] = []
+
+    def _chat(message: str) -> TurnResult:
+        turns.append(message)
+        return TurnResult(
+            final_intent="cli_agent_handled",
+            action_result=ToolCallingTurnResult(
+                planned_count=0,
+                executed_count=0,
+                executed_success_count=0,
+                has_unhandled_clause=False,
+                handled=True,
+            ),
+            assistant_response_text="side question answered",
+            llm_run=None,
+        )
+
+    outcome = run_until_session_goal(_chat, session, "unrelated question")
+
+    assert len(turns) == 1
+    assert turns[0] == "unrelated question"
+    assert outcome.goal.status == SessionGoalStatus.PAUSED
+    assert outcome.goal.turns_used == 2
+    assert outcome.turn_count == 2
+    assert session.session_goal is not None
+    assert session.session_goal.status == SessionGoalStatus.PAUSED

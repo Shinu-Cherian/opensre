@@ -43,7 +43,7 @@ def _bounded_arguments(arguments: dict[str, Any]) -> dict[str, Any]:
     return {"truncated": serialized[:_INTENT_ARGS_MAX_CHARS]}
 
 
-class JsonlSessionStorage:
+class JsonlSessionStore:
     """Per-session v2 JSONL writer.
 
     The first line is a session header. Every following line is an append-only
@@ -342,17 +342,19 @@ class JsonlSessionStorage:
             records = self._read_records(path)
             if not records:
                 return
-            if records[-1].get("type") == "leaf":
-                return
-            if not self._has_turns(records):
+            trailing_leaf = records[-1].get("type") == "leaf"
+            if not trailing_leaf and not self._has_turns(records):
                 path.unlink(missing_ok=True)
                 return
+            # Trailing ``leaf``: still append changed session-goal state so
+            # mid-session ``/goal pause`` survives the next ``resolve``. Do not
+            # write another leaf (end-of-session flush stays idempotent).
             # ``records`` is not re-read after the appends below. The counts in
             # the leaf entry only match ``custom_message``/``turn_stub`` records,
             # and the guard below only looks for ``message`` records — neither
             # append can produce either, so a re-parse would return the same
             # answers for the cost of a full pass over the whole transcript.
-            if session.accumulated_context:
+            if session.accumulated_context and not trailing_leaf:
                 self.append_custom_message(
                     session.session_id,
                     custom_type="accumulated_context",
@@ -360,7 +362,7 @@ class JsonlSessionStorage:
                     display=False,
                 )
             if hasattr(session, "session_goal"):
-                from core.agent_harness.session.session_goal_persist import (
+                from core.agent_harness.session_goal.persist import (
                     SESSION_GOAL_STATE_CUSTOM_TYPE,
                     session_goal_state_snapshot,
                     should_persist_session_goal_state,
@@ -374,6 +376,8 @@ class JsonlSessionStorage:
                         content=goal_state,
                         display=False,
                     )
+            if trailing_leaf:
+                return
             if session.agent.messages and not any(rec.get("type") == "message" for rec in records):
                 for role, content in session.agent.messages:
                     self.append_message(
@@ -505,7 +509,7 @@ class JsonlSessionStorage:
     def _read_records(path: Path) -> list[dict[str, Any]]:
         records: list[dict[str, Any]] = []
         for line in path.read_text(encoding="utf-8").splitlines():
-            rec = JsonlSessionStorage._loads_record(line)
+            rec = JsonlSessionStore._loads_record(line)
             if rec is not None:
                 records.append(rec)
         return records

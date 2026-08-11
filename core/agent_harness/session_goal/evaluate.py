@@ -1,10 +1,18 @@
-"""Outer SessionGoal completion — structured verdict, not model self-report alone.
+"""SessionGoal completion — structured verdict, not model self-report alone.
 
 The action/assistant model may emit ``session_goal:achieved``. That tag is a
 claim, not proof. This module is the independent host check:
 
 * Checklist complete (via ``done=`` indices) → achieved.
-* ``achieved`` with an incomplete checklist → stay active (ignore the tag).
+* ``achieved`` with tool evidence on an incomplete **short** checklist (≤2
+  items) → complete the checklist (same-turn query+report) and achieve. A
+  longer checklist keeps explicit ``done=`` tracking, so the claim is ignored.
+* ``achieved`` with an incomplete checklist and **no** tool evidence → stay
+  active (ignore the tag).
+* Short checklist (≤2 items), no prior-turn progress, tools succeeded, and a
+  non-empty reply → achieve even when the model only tagged part of the
+  checklist (e.g. ``done=0`` for query, forgot report) or omitted tags
+  entirely — avoids a redundant session-goal turn that repeats the answer.
 * ``achieved`` while ``investigation_dispatched`` this turn → stay active
   (starting RCA is not finishing the goal).
 * ``achieved`` on a **host-owned** (``/goal set``) goal → achieved without tools
@@ -12,7 +20,7 @@ claim, not proof. This module is the independent host check:
 * ``achieved`` with no checklist on a handoff goal → require tool evidence, or
   stay active.
 * Hosts may wrap :func:`evaluate_session_goal` with an LLM confirm for the
-  tool-evidence path (:mod:`session_goal_review`).
+  tool-evidence path (:mod:`core.agent_harness.session_goal.confirm`).
 """
 
 from __future__ import annotations
@@ -21,7 +29,7 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-from core.agent_harness.session.session_goal import (
+from core.agent_harness.session_goal.goal import (
     SessionGoal,
     SessionGoalReason,
     SessionGoalStatus,
@@ -30,10 +38,7 @@ from core.agent_harness.session.session_goal import (
 )
 
 # Standalone progress tag — same token shape as strip_session_goal_progress_tags.
-_ACHIEVED_CLAIM = re.compile(
-    r"(?:^|\s)session_goal:achieved(?=\s|$)",
-    re.MULTILINE,
-)
+_ACHIEVED_CLAIM = re.compile(r"session_goal:achieved")
 
 # Pre-fix host reasons embedded the tag grammar; neutralize before scanning so
 # old painted status text cannot look like a claim.
@@ -45,7 +50,7 @@ _LEGACY_WAITING_WITH_TAG = (
 
 @dataclass(frozen=True, slots=True)
 class SessionGoalVerdict:
-    """Host decision for one outer-loop evaluation."""
+    """Host decision for one session-goal evaluation."""
 
     status: str
     reason: str
@@ -91,7 +96,7 @@ def turn_has_session_goal_evidence(result: Any) -> bool:
     call must not let an ``achieved`` claim through. ``executed_count`` alone
     would say yes to a turn whose only action failed.
 
-    Dispatching ``investigation_start`` is not finishing evidence for an outer
+    Dispatching ``investigation_start`` is not finishing evidence for a session
     goal — that work lands in later turns / the investigation report.
     """
     if turn_dispatched_investigation(result):
@@ -106,13 +111,33 @@ def turn_has_session_goal_evidence(result: Any) -> bool:
     return succeeded > 0
 
 
+# metric_read-style attach usually emits query + report (2 items). Longer
+# walkthroughs must keep explicit ``done=`` tracking so a partial first turn
+# cannot false-complete the whole checklist.
+_SAME_TURN_CHECKLIST_MAX_ITEMS = 2
+
+
+def _complete_checklist(goal: SessionGoal) -> SessionGoal:
+    return goal.with_completed(frozenset(range(len(goal.checklist))))
+
+
+def _same_turn_completable(goal: SessionGoal) -> bool:
+    """True when one turn may close the whole checklist without ``done=`` tags.
+
+    Applies to both same-turn paths (claimed and unclaimed): a walkthrough long
+    enough to span turns must track progress explicitly, so a first turn that
+    touched one item cannot mark the rest done.
+    """
+    return len(goal.checklist) <= _SAME_TURN_CHECKLIST_MAX_ITEMS
+
+
 def evaluate_session_goal(
     goal: SessionGoal,
     result: Any,
     *,
     session: Any | None = None,
 ) -> SessionGoalVerdict:
-    """Independent structured evaluation of an outer session goal."""
+    """Independent structured evaluation of an session goal."""
     if session is not None and getattr(session, "pending_user_choice", None) is not None:
         return SessionGoalVerdict(
             status=SessionGoalStatus.ACTIVE,
@@ -125,16 +150,24 @@ def evaluate_session_goal(
         stored = getattr(session, "session_goal", None)
         if isinstance(stored, SessionGoal):
             current = stored
+    completed_before = current.completed
     current = apply_session_goal_progress(current, text)
 
     claimed = reply_claims_session_goal_achieved(text)
     dispatched = turn_dispatched_investigation(result)
+    evidence = turn_has_session_goal_evidence(result)
 
     if current.checklist:
         if current.checklist_complete:
             verdict = SessionGoalVerdict(
                 status=SessionGoalStatus.ACHIEVED,
                 reason=SessionGoalReason.CHECKLIST_COMPLETE,
+            )
+        elif _same_turn_completable(current) and claimed and evidence and not dispatched:
+            current = _complete_checklist(current)
+            verdict = SessionGoalVerdict(
+                status=SessionGoalStatus.ACHIEVED,
+                reason=SessionGoalReason.CHECKLIST_COMPLETE_SAME_TURN,
             )
         elif claimed:
             nxt = current.next_checklist_item
@@ -144,6 +177,21 @@ def evaluate_session_goal(
             verdict = SessionGoalVerdict(
                 status=SessionGoalStatus.ACTIVE,
                 reason=SessionGoalReason.achieved_ignored_incomplete(done, total, next_label),
+            )
+        elif (
+            _same_turn_completable(current)
+            and evidence
+            and not dispatched
+            and bool(text.strip())
+            and not completed_before
+        ):
+            # Tools + answer already delivered on the first short-checklist
+            # turn. Partial done= (query only) must not leave "report" open —
+            # that forces a redundant outer turn that repeats the same answer.
+            current = _complete_checklist(current)
+            verdict = SessionGoalVerdict(
+                status=SessionGoalStatus.ACHIEVED,
+                reason=SessionGoalReason.CHECKLIST_COMPLETE_SAME_TURN,
             )
         else:
             done = len(current.completed & frozenset(range(len(current.checklist))))

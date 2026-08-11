@@ -1,17 +1,20 @@
-"""Shell continues outer SessionGoal only after structured action handoff."""
+"""Shell continues SessionGoal only after structured action handoff."""
 
 from __future__ import annotations
 
+import re
 from typing import Any
 from unittest.mock import MagicMock
 
 from rich.console import Console
 
-from core.agent_harness.session.session_goal import SessionGoalStatus
+from core.agent_harness.session_goal.goal import SessionGoalStatus
 from core.agent_harness.turns.assistant_handoff import AssistantHandoff
 from core.agent_harness.turns.turn_results import ToolCallingTurnResult
 from surfaces.interactive_shell.runtime.shell_turn_execution import execute_shell_turn
 from surfaces.interactive_shell.session import Session
+
+_ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
 _FIVE_STEP = (
     "Do this 5-step sequential process without asking whether to continue: "
@@ -110,12 +113,16 @@ def test_execute_shell_turn_prints_checklist_progress(capsys: Any) -> None:
         answer_agent=_answer,
     )
 
-    painted = capsys.readouterr().out
-    assert "Session goal" in painted
+    # Rich may color ``/goal`` when force_terminal=True, so strip SGR first.
+    painted = _ANSI.sub("", capsys.readouterr().out)
+    assert "◎ /goal" in painted
     assert "Checklist:" in painted
     assert "Alpha" in painted and "Beta" in painted
     assert "turn " in painted
     assert "reason:" in painted
+    # Continuation paints working… (not a second evaluate block), then achieved.
+    assert "working" in painted
+    assert "checklist complete" in painted or "achieved" in painted
 
 
 def test_execute_shell_turn_does_not_loop_on_user_prose_alone() -> None:
