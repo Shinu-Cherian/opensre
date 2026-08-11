@@ -32,19 +32,22 @@ from gateway.transports.slack.client import (
     mark_turn_failed,
     mark_turn_working,
 )
-from gateway.transports.slack.inbound.events import SlackInboundFile, SlackInboundMessage
-from gateway.transports.slack.inbound.principal import PrincipalResolutionError, resolve_slack_scope
-from gateway.transports.slack.inbound.security import (
+from gateway.transports.slack.delivery.approvals import ThreadApprovalPrompter
+from gateway.transports.slack.delivery.output_sink import SlackOutputSink
+from gateway.transports.slack.processing.events import SlackInboundFile, SlackInboundMessage
+from gateway.transports.slack.processing.principal import (
+    PrincipalResolutionError,
+    resolve_slack_scope,
+)
+from gateway.transports.slack.processing.security import (
     SlackInboundDecision,
     enforce_inbound_slack_message_security,
     persist_policy_if_needed,
 )
-from gateway.transports.slack.inbound.thread_history import (
+from gateway.transports.slack.processing.thread_history import (
     seed_session_from_slack_thread,
     session_needs_thread_seed,
 )
-from gateway.transports.slack.outbound.approvals import ThreadApprovalPrompter
-from gateway.transports.slack.outbound.output_sink import SlackOutputSink
 from gateway.transports.slack.settings import SlackGatewaySettings
 from platform.analytics.usage_context import SURFACE_SLACK, bound_usage_context
 
@@ -54,7 +57,7 @@ _ROTATE_SESSION = "__ROTATE_SESSION__"
 # Only an explicit 402 from the credit ledger posts this; UNCONFIGURED /
 # UNAVAILABLE outcomes run the turn instead, so a misconfiguration or webapp
 # outage never masquerades to users as "out of credits".
-class _SlackTurnDispatcher:
+class SlackTurnDispatcher:
     """Runs authorized inbound Slack messages through the gateway agent callback."""
 
     def __init__(
@@ -398,7 +401,7 @@ def _slack_files_context(files: tuple[SlackInboundFile, ...], logger: logging.Lo
     Returns an empty string when the bot token is unavailable (metering-style
     fail-safe — a missing token drops attachments rather than failing the turn).
     """
-    from gateway.transports.slack.inbound.attachments import build_files_context
+    from gateway.transports.slack.processing.attachments import build_files_context
     from integrations.slack.web_client import resolve_bot_token
 
     target, detail = resolve_bot_token()

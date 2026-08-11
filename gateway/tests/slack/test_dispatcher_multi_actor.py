@@ -1,7 +1,7 @@
 """Dispatcher-level concurrency: many teammates, distinct sessions, no binding loss.
 
 Complements ``gateway/tests/test_multi_actor_concurrency.py`` (store layer) by
-driving ``_SlackTurnDispatcher._run_turn`` the way the Socket Mode pool does —
+driving ``SlackTurnDispatcher._run_turn`` the way the Socket Mode pool does —
 several threads, real ``SessionResolver`` + ``FileBindingStore``, mocked LLM
 handler.
 """
@@ -24,10 +24,10 @@ from config.principal import Principal
 from core.agent_harness.session import InMemorySessionStore, SessionCore, SessionManager
 from gateway.core.billing.credits_client import CreditsOutcome
 from gateway.core.storage import FileBindingStore, SessionResolver
-from gateway.transports.slack.inbound.dispatcher import _SlackTurnDispatcher
-from gateway.transports.slack.inbound.events import SlackInboundMessage
-from gateway.transports.slack.inbound.principal import slack_scope
-from gateway.transports.slack.inbound.security import SlackInboundDecision
+from gateway.transports.slack.processing.dispatcher import SlackTurnDispatcher
+from gateway.transports.slack.processing.events import SlackInboundMessage
+from gateway.transports.slack.processing.principal import slack_scope
+from gateway.transports.slack.processing.security import SlackInboundDecision
 from gateway.transports.slack.settings import SlackGatewaySettings
 
 _ORG = "org_dispatcher_concurrency"
@@ -124,7 +124,7 @@ def _join(threads: list[threading.Thread], timeout: float = 30.0) -> None:
 
 
 def _run_turn(
-    dispatcher: _SlackTurnDispatcher,
+    dispatcher: SlackTurnDispatcher,
     *,
     user_id: str,
     thread_ts: str,
@@ -140,21 +140,21 @@ def allow_all_security():
     decision = SlackInboundDecision(allowed=True)
     with (
         patch(
-            "gateway.transports.slack.inbound.dispatcher.enforce_inbound_slack_message_security",
+            "gateway.transports.slack.processing.dispatcher.enforce_inbound_slack_message_security",
             return_value=decision,
         ),
-        patch("gateway.transports.slack.inbound.dispatcher.persist_policy_if_needed"),
+        patch("gateway.transports.slack.processing.dispatcher.persist_policy_if_needed"),
         patch(
-            "gateway.transports.slack.inbound.dispatcher.session_needs_thread_seed",
+            "gateway.transports.slack.processing.dispatcher.session_needs_thread_seed",
             return_value=False,
         ),
         patch(
-            "gateway.transports.slack.inbound.dispatcher.consume_credits",
+            "gateway.transports.slack.processing.dispatcher.consume_credits",
             return_value=CreditsOutcome.UNCONFIGURED,
         ),
-        patch("gateway.transports.slack.inbound.dispatcher.mark_turn_working"),
-        patch("gateway.transports.slack.inbound.dispatcher.mark_turn_done"),
-        patch("gateway.transports.slack.inbound.dispatcher.mark_turn_failed"),
+        patch("gateway.transports.slack.processing.dispatcher.mark_turn_working"),
+        patch("gateway.transports.slack.processing.dispatcher.mark_turn_done"),
+        patch("gateway.transports.slack.processing.dispatcher.mark_turn_failed"),
     ):
         yield
 
@@ -175,7 +175,7 @@ def test_concurrent_alice_bob_different_threads_keep_distinct_sessions(
             turns.append((text, session.session_id))
         sink.finalize("ok")
 
-    dispatcher = _SlackTurnDispatcher(
+    dispatcher = SlackTurnDispatcher(
         settings=_settings(),
         messaging=_FakeMessagingClient(),
         session_resolver=resolver,
@@ -255,7 +255,7 @@ def test_same_thread_alice_bob_interleaved_turns_stay_isolated(
         time.sleep(0.02)
         sink.finalize("ok")
 
-    dispatcher = _SlackTurnDispatcher(
+    dispatcher = SlackTurnDispatcher(
         settings=_settings(),
         messaging=_FakeMessagingClient(),
         session_resolver=resolver,
@@ -330,7 +330,7 @@ def test_many_actors_parallel_turns_all_bindings_survive(
                 break
         sink.finalize("ok")
 
-    dispatcher = _SlackTurnDispatcher(
+    dispatcher = SlackTurnDispatcher(
         settings=_settings(),
         messaging=_FakeMessagingClient(),
         session_resolver=resolver,
