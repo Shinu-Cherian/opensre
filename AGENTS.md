@@ -40,9 +40,8 @@
 - Protocol methods you **add or change** use a **docstring-only body** — no
   `...`, no `pass`, no `raise NotImplementedError`, and never a docstring *plus*
   a trailing `...`/`pass`. Precedent (all fully compliant):
-  `platform/filestorage/ports.py`, `platform/deployment_contracts/ports.py`,
-  `core/agent/loop_host.py`, `gateway/core/runtime/sink_protocol.py`,
-  `core/llm/types.py`.
+  `platform/filestorage/ports.py`, `core/agent/loop_host.py`,
+  `gateway/core/runtime/sink_protocol.py`, `core/llm/types.py`.
 
   ```python
   class ObjectStore(Protocol):
