@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 from core.agent_harness.turns.evidence_need import (
+    EvidenceDegradeCause,
     EvidenceKind,
     EvidenceTier,
     classify_evidence_need,
     cta_offered_key,
     evidence_kind_from_handoffs,
     format_upgrade_cta,
+    handoff_tag_for,
+    reclassify_evidence_need_after_gather,
     should_skip_gather,
     should_suppress_investigation_offer,
 )
@@ -31,6 +34,7 @@ def test_metric_kind_from_handoff_degrades_when_preferred_source_missing() -> No
     assert need.preferred_sources == (_FAKE_ANALYTICS,)
     assert need.missing == (_FAKE_ANALYTICS,)
     assert need.tier == EvidenceTier.L0_DEGRADED
+    assert need.degrade_cause == EvidenceDegradeCause.MISSING_SOURCE
     assert should_skip_gather(need) is True
     assert should_suppress_investigation_offer(need) is True
 
@@ -165,3 +169,150 @@ def test_evidence_tier_and_kind_are_string_enums() -> None:
     assert isinstance(EvidenceTier.L0_DEGRADED, str)
     assert EvidenceTier("L0_degraded") is EvidenceTier.L0_DEGRADED
     assert EvidenceKind("metric_read") is EvidenceKind.METRIC_READ
+    assert EvidenceDegradeCause("config_failure") is EvidenceDegradeCause.CONFIG_FAILURE
+
+
+def _l1_metric_need():
+    return classify_evidence_need(
+        handoff_contents=("evidence_kind:metric_read",),
+        resolved_integrations={_FAKE_ANALYTICS: {"configured": True}},
+        preferred_sources_for=_prefer_fake_analytics,
+    )
+
+
+def test_reclassify_after_gather_flips_on_auth_failure() -> None:
+    need = _l1_metric_need()
+    assert need.tier == EvidenceTier.L1
+
+    flipped = reclassify_evidence_need_after_gather(
+        need,
+        (
+            f"Tool: {_FAKE_ANALYTICS} execute-sql\n"
+            "Result: {'source': 'fake_analytics', 'available': False, "
+            "'error': '401 Unauthorized — invalid api key'}"
+        ),
+    )
+
+    assert flipped.tier == EvidenceTier.L0_DEGRADED
+    assert flipped.degrade_cause == EvidenceDegradeCause.CONFIG_FAILURE
+    assert flipped.missing == (_FAKE_ANALYTICS,)
+    assert should_skip_gather(flipped) is False  # config L0 is post-gather
+    tag = handoff_tag_for(flipped)
+    assert tag is not None
+    assert tag.startswith("evidence_tier:L0_degraded:config:")
+    cta = format_upgrade_cta(flipped, setup_command_for=lambda n: f"/integrations setup {n}")
+    assert cta is not None
+    assert "credentials or configuration" in cta
+    assert f"/integrations setup {_FAKE_ANALYTICS}" in cta
+
+
+def test_reclassify_after_gather_ignores_hogql_and_empty_results() -> None:
+    need = _l1_metric_need()
+    for observation in (
+        f"Tool: {_FAKE_ANALYTICS}\nResult: HogQL syntax error near SELECT",
+        f"Tool: {_FAKE_ANALYTICS}\nResult: no events in window (empty result)",
+        f"Tool: {_FAKE_ANALYTICS}\nResult: windows_users=42",
+        None,
+        "",
+    ):
+        assert reclassify_evidence_need_after_gather(need, observation) is need
+
+
+def test_reclassify_leaves_missing_source_l0_unchanged() -> None:
+    need = classify_evidence_need(
+        handoff_contents=("evidence_kind:metric_read",),
+        resolved_integrations={},
+        preferred_sources_for=_prefer_fake_analytics,
+    )
+    assert need.degrade_cause == EvidenceDegradeCause.MISSING_SOURCE
+    assert (
+        reclassify_evidence_need_after_gather(
+            need,
+            (
+                f"Tool: {_FAKE_ANALYTICS}\n"
+                "Result: {'source': 'fake_analytics', 'available': False, "
+                "'error': '401 Unauthorized'}"
+            ),
+        )
+        is need
+    )
+
+
+def test_successful_result_values_are_not_read_as_config_failures() -> None:
+    """Ordinary result values must not look like tool_unavailable.
+
+    Greptile P1: a successful preferred-source result that *mentions*
+    ``unauthorized access``, ``permission denied``, or nested
+    ``"available": false`` as data must stay L1 — never discard it and tell
+    the user to reconnect.
+    """
+    from core.agent_harness.turns.evidence_need import _preferred_sources_with_config_failure
+
+    sources = ("posthog_mcp",)
+
+    # A successful query whose count happens to be 401.
+    counted = 'Tool: posthog_mcp query\nResult: {"results": [["Windows", 401]], "status": "ok"}'
+    assert _preferred_sources_with_config_failure(sources, observation=counted) == ()
+
+    # Prose / names that used to trip the old phrase list.
+    for observation in (
+        'Tool: posthog_mcp\nResult: {"rows": [["forbidden-city-campaign", 12]]}',
+        'Tool: posthog_mcp\nResult: {"rows": [["unauthorized-users-cohort", 87]]}',
+        'Tool: posthog_mcp\nResult: {"rows": [["unauthorized access", 3]]}',
+        'Tool: posthog_mcp\nResult: {"rows": [["permission denied events", 9]]}',
+        'Tool: posthog_mcp\nResult: {"rows": [["access denied page", 1]]}',
+        # Nested available:false without top-level error (feature-flag shape).
+        'Tool: posthog_mcp\nResult: {"flags": {"unauthorized_banner": {"available": false}}}',
+        # available:false without error — not the typed envelope.
+        'Tool: posthog_mcp\nResult: {"source": "posthog_mcp", "available": false}',
+        # Free-text auth wording without an envelope — fail closed (no degrade).
+        "Tool: posthog_mcp\nResult: error: 401 Unauthorized, invalid api key",
+        "Tool: posthog_mcp\nResult: permission denied",
+    ):
+        assert _preferred_sources_with_config_failure(sources, observation=observation) == (), (
+            observation
+        )
+
+
+def test_a_real_auth_failure_is_still_detected() -> None:
+    """Typed tool_unavailable envelopes still flip preferred sources."""
+    from core.agent_harness.turns.evidence_need import _preferred_sources_with_config_failure
+
+    sources = ("posthog_mcp",)
+    for observation in (
+        "Tool: posthog_mcp execute-sql\n"
+        "Result: {'source': 'posthog_mcp', 'available': False, "
+        "'error': '401 Unauthorized — invalid api key'}",
+        "Tool: posthog_mcp\n"
+        'Result: {"source": "posthog", "available": false, "error": "not configured"}',
+        # Envelope without source — Tool: line supplies the vendor.
+        "Tool: posthog_mcp list_tools\n"
+        "Result: {'available': False, 'error': 'authentication failed'}",
+        # JSON envelope embedded without Tool:/Result: wrapper.
+        '{"source": "posthog_mcp", "available": false, "error": "invalid api key"}',
+    ):
+        assert (
+            _preferred_sources_with_config_failure(sources, observation=observation) == sources
+        ), observation
+
+
+def test_structured_tool_results_flip_without_scraping_observation() -> None:
+    """GatheredEvidence.tool_results is the preferred reclassify path."""
+    from core.agent_harness.turns.gather_observation import GatheredEvidence
+    from core.tool_framework.utils.tool_availability import tool_unavailable
+
+    need = _l1_metric_need()
+    # Observation looks like a happy path; structured payload says otherwise.
+    gathered = GatheredEvidence(
+        observation=f"Tool: {_FAKE_ANALYTICS}\nResult: windows_users=42",
+        tool_results=(
+            (
+                f"{_FAKE_ANALYTICS} execute-sql",
+                tool_unavailable(_FAKE_ANALYTICS, "401 Unauthorized"),
+            ),
+        ),
+    )
+    flipped = reclassify_evidence_need_after_gather(need, gathered)
+    assert flipped.tier == EvidenceTier.L0_DEGRADED
+    assert flipped.degrade_cause == EvidenceDegradeCause.CONFIG_FAILURE
+    assert flipped.missing == (_FAKE_ANALYTICS,)
