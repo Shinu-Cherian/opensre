@@ -131,6 +131,12 @@ from config.constants.mongodb import (
     MONGODB_DATABASE_ENV,
     MONGODB_TLS_ENV,
 )
+from config.constants.mongodb_atlas import (
+    MONGODB_ATLAS_BASE_URL_ENV,
+    MONGODB_ATLAS_PRIVATE_KEY_ENV,
+    MONGODB_ATLAS_PROJECT_ID_ENV,
+    MONGODB_ATLAS_PUBLIC_KEY_ENV,
+)
 from config.constants.mysql import (
     MYSQL_DATABASE_ENV,
     MYSQL_HOST_ENV,
@@ -215,6 +221,7 @@ from config.constants.temporal import (
     TEMPORAL_BASE_URL_ENV,
     TEMPORAL_NAMESPACE_ENV,
 )
+from config.constants.tracer import TRACER_BASE_URL_ENV, TRACER_JWT_TOKEN_ENV
 from config.constants.twilio import (
     TWILIO_ACCOUNT_SID_ENV,
     TWILIO_AUTH_TOKEN_ENV,
@@ -1437,9 +1444,9 @@ def load_env_integrations() -> list[dict[str, Any]]:
                 )
             )
 
-    atlas_pub = resolve_env_credential("MONGODB_ATLAS_PUBLIC_KEY")
-    atlas_priv = resolve_env_credential("MONGODB_ATLAS_PRIVATE_KEY")
-    atlas_project = os.getenv("MONGODB_ATLAS_PROJECT_ID", "").strip()
+    atlas_pub = resolve_env_credential(MONGODB_ATLAS_PUBLIC_KEY_ENV)
+    atlas_priv = resolve_env_credential(MONGODB_ATLAS_PRIVATE_KEY_ENV)
+    atlas_project = os.getenv(MONGODB_ATLAS_PROJECT_ID_ENV, "").strip()
     if atlas_pub and atlas_priv and atlas_project:
         try:
             atlas_config = build_mongodb_atlas_config(
@@ -1448,7 +1455,7 @@ def load_env_integrations() -> list[dict[str, Any]]:
                     "api_private_key": atlas_priv,
                     "project_id": atlas_project,
                     "base_url": os.getenv(
-                        "MONGODB_ATLAS_BASE_URL", "https://cloud.mongodb.com/api/atlas/v2"
+                        MONGODB_ATLAS_BASE_URL_ENV, "https://cloud.mongodb.com/api/atlas/v2"
                     ).strip(),
                 }
             )
@@ -2233,12 +2240,12 @@ def resolve_effective_integrations(
             },
         )
     else:
-        jwt_token = resolve_env_credential("JWT_TOKEN")
+        jwt_token = resolve_env_credential(TRACER_JWT_TOKEN_ENV)
         if jwt_token:
             effective["tracer"] = _effective_entry(
                 "local env",
                 {
-                    "base_url": os.getenv("TRACER_API_URL", "").strip() or get_tracer_base_url(),
+                    "base_url": os.getenv(TRACER_BASE_URL_ENV, "").strip() or get_tracer_base_url(),
                     "jwt_token": jwt_token,
                 },
             )
