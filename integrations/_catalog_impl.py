@@ -63,6 +63,7 @@ from config.constants.coralogix import (
     CORALOGIX_BASE_URL_ENV,
     CORALOGIX_SUBSYSTEM_NAME_ENV,
 )
+from config.constants.dagster import DAGSTER_API_TOKEN_ENV, DAGSTER_ENDPOINT_ENV
 from config.constants.datadog import (
     DATADOG_API_KEY_ENV,
     DATADOG_APP_KEY_ENV,
@@ -109,6 +110,7 @@ from config.constants.honeycomb import (
     HONEYCOMB_BASE_URL_ENV,
     HONEYCOMB_DATASET_ENV,
 )
+from config.constants.incident_io import INCIDENT_IO_API_KEY_ENV, INCIDENT_IO_BASE_URL_ENV
 from config.constants.kubernetes import (
     KUBECONFIG_CONTENT_ENV,
     KUBECONFIG_CONTEXT_ENV,
@@ -150,6 +152,7 @@ from config.constants.opensearch import (
     OPENSEARCH_URL_ENV,
     OPENSEARCH_USERNAME_ENV,
 )
+from config.constants.pagerduty import PAGERDUTY_API_KEY_ENV, PAGERDUTY_BASE_URL_ENV
 from config.constants.postgresql import (
     POSTGRESQL_DATABASE_ENV,
     POSTGRESQL_HOST_ENV,
@@ -206,6 +209,11 @@ from config.constants.smtp import (
 from config.constants.telegram import (
     TELEGRAM_BOT_TOKEN_ENV,
     TELEGRAM_DEFAULT_CHAT_ID_ENV,
+)
+from config.constants.temporal import (
+    TEMPORAL_API_KEY_ENV,
+    TEMPORAL_BASE_URL_ENV,
+    TEMPORAL_NAMESPACE_ENV,
 )
 from config.constants.twilio import (
     TWILIO_ACCOUNT_SID_ENV,
@@ -1179,11 +1187,11 @@ def load_env_integrations() -> list[dict[str, Any]]:
                 )
             )
 
-    pagerduty_api_key = resolve_env_credential("PAGERDUTY_API_KEY")
+    pagerduty_api_key = resolve_env_credential(PAGERDUTY_API_KEY_ENV)
     if pagerduty_api_key:
         try:
             _envs: dict[str, Any] = {"api_key": pagerduty_api_key}
-            base_url = os.getenv("PAGERDUTY_BASE_URL", "").strip()
+            base_url = os.getenv(PAGERDUTY_BASE_URL_ENV, "").strip()
             if base_url:
                 _envs["base_url"] = base_url
             pagerduty_config = PagerDutyIntegrationConfig.model_validate(_envs)
@@ -1197,13 +1205,13 @@ def load_env_integrations() -> list[dict[str, Any]]:
                 )
             )
 
-    incident_io_api_key = resolve_env_credential("INCIDENT_IO_API_KEY")
+    incident_io_api_key = resolve_env_credential(INCIDENT_IO_API_KEY_ENV)
     if incident_io_api_key:
         try:
             incident_io_config = IncidentIoIntegrationConfig.model_validate(
                 {
                     "api_key": incident_io_api_key,
-                    "base_url": os.getenv("INCIDENT_IO_BASE_URL", "").strip(),
+                    "base_url": os.getenv(INCIDENT_IO_BASE_URL_ENV, "").strip(),
                 }
             )
         except Exception as exc:
@@ -1631,13 +1639,13 @@ def load_env_integrations() -> list[dict[str, Any]]:
         except Exception as exc:
             _report_env_loader_failure(exc, integration="mariadb")
 
-    dagster_endpoint = os.getenv("DAGSTER_ENDPOINT", "").strip()
+    dagster_endpoint = os.getenv(DAGSTER_ENDPOINT_ENV, "").strip()
     if dagster_endpoint:
         try:
             dagster_config = build_dagster_config(
                 {
                     "endpoint": dagster_endpoint,
-                    "api_token": resolve_env_credential("DAGSTER_API_TOKEN"),
+                    "api_token": resolve_env_credential(DAGSTER_API_TOKEN_ENV),
                 }
             )
             integrations.append(
@@ -1997,14 +2005,14 @@ def load_env_integrations() -> list[dict[str, Any]]:
     except Exception as exc:
         _report_env_loader_failure(exc, integration="tempo")
 
-    temporal_url = os.getenv("TEMPORAL_API_URL", "").strip()
-    temporal_namespace = os.getenv("TEMPORAL_NAMESPACE", "default").strip()
+    temporal_url = os.getenv(TEMPORAL_BASE_URL_ENV, "").strip()
+    temporal_namespace = os.getenv(TEMPORAL_NAMESPACE_ENV, "default").strip()
     if temporal_url and temporal_namespace:
         try:
             temporal_config = TemporalConfig.model_validate(
                 {
                     "base_url": temporal_url,
-                    "api_key": resolve_env_credential("TEMPORAL_API_KEY"),
+                    "api_key": resolve_env_credential(TEMPORAL_API_KEY_ENV),
                     "namespace": temporal_namespace,
                 }
             )
