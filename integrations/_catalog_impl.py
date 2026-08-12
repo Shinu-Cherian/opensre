@@ -50,6 +50,13 @@ from config.constants.betterstack import (
     BETTERSTACK_SOURCES_ENV,
     BETTERSTACK_USERNAME_ENV,
 )
+from config.constants.buzz import (
+    BUZZ_AUTH_TAG_ENV,
+    BUZZ_DEFAULT_CHANNEL_ENV,
+    BUZZ_PATH_ENV,
+    BUZZ_PRIVATE_KEY_ENV,
+    BUZZ_RELAY_URL_ENV,
+)
 from config.constants.coralogix import (
     CORALOGIX_API_KEY_ENV,
     CORALOGIX_APPLICATION_NAME_ENV,
@@ -60,6 +67,12 @@ from config.constants.datadog import (
     DATADOG_API_KEY_ENV,
     DATADOG_APP_KEY_ENV,
     DATADOG_SITE_ENV,
+)
+from config.constants.discord import (
+    DISCORD_APPLICATION_ID_ENV,
+    DISCORD_BOT_TOKEN_ENV,
+    DISCORD_DEFAULT_CHANNEL_ID_ENV,
+    DISCORD_PUBLIC_KEY_ENV,
 )
 from config.constants.github import (
     GITHUB_MCP_ARGS_ENV,
@@ -150,6 +163,12 @@ from config.constants.railway import (
     RAILWAY_SERVICE_ENV,
     RAILWAY_TOKEN_ENV,
 )
+from config.constants.rocketchat import (
+    ROCKETCHAT_AUTH_TOKEN_ENV,
+    ROCKETCHAT_DEFAULT_CHANNEL_ENV,
+    ROCKETCHAT_SERVER_URL_ENV,
+    ROCKETCHAT_USER_ID_ENV,
+)
 from config.constants.sentry import (
     DEFAULT_SENTRY_BASE_URL,
     SENTRY_AUTH_TOKEN_ENV,
@@ -168,6 +187,10 @@ from config.constants.servicenow import (
     SERVICENOW_USERNAME_ENV,
 )
 from config.constants.slack import SLACK_APP_TOKEN_ENV, SLACK_BOT_TOKEN_ENV
+from config.constants.telegram import (
+    TELEGRAM_BOT_TOKEN_ENV,
+    TELEGRAM_DEFAULT_CHAT_ID_ENV,
+)
 from config.constants.twilio import (
     TWILIO_ACCOUNT_SID_ENV,
     TWILIO_AUTH_TOKEN_ENV,
@@ -1229,15 +1252,15 @@ def load_env_integrations() -> list[dict[str, Any]]:
                 )
             )
 
-    discord_bot_token = resolve_env_credential("DISCORD_BOT_TOKEN")
+    discord_bot_token = resolve_env_credential(DISCORD_BOT_TOKEN_ENV)
     if discord_bot_token:
         try:
             discord_config = DiscordBotConfig.model_validate(
                 {
                     "bot_token": discord_bot_token,
-                    "application_id": os.getenv("DISCORD_APPLICATION_ID", "").strip(),
-                    "public_key": os.getenv("DISCORD_PUBLIC_KEY", "").strip(),
-                    "default_channel_id": os.getenv("DISCORD_DEFAULT_CHANNEL_ID", "").strip()
+                    "application_id": os.getenv(DISCORD_APPLICATION_ID_ENV, "").strip(),
+                    "public_key": os.getenv(DISCORD_PUBLIC_KEY_ENV, "").strip(),
+                    "default_channel_id": os.getenv(DISCORD_DEFAULT_CHANNEL_ID_ENV, "").strip()
                     or None,
                 }
             )
@@ -1250,13 +1273,13 @@ def load_env_integrations() -> list[dict[str, Any]]:
     if airflow_config is not None:
         integrations.append(_active_env_record("airflow", airflow_config.model_dump()))
 
-    telegram_bot_token = resolve_env_credential("TELEGRAM_BOT_TOKEN")
+    telegram_bot_token = resolve_env_credential(TELEGRAM_BOT_TOKEN_ENV)
     if telegram_bot_token:
         try:
             tg_config = TelegramBotConfig.model_validate(
                 {
                     "bot_token": telegram_bot_token,
-                    "default_chat_id": os.getenv("TELEGRAM_DEFAULT_CHAT_ID", "").strip() or None,
+                    "default_chat_id": os.getenv(TELEGRAM_DEFAULT_CHAT_ID_ENV, "").strip() or None,
                 }
             )
         except Exception as exc:
@@ -1265,17 +1288,18 @@ def load_env_integrations() -> list[dict[str, Any]]:
             integrations.append(_active_env_record("telegram", tg_config.model_dump()))
 
     # PAT is keyring-backed via wizard sync_env_secret; webhook URL stays store/env only.
-    rocketchat_auth_token = resolve_env_credential("ROCKETCHAT_AUTH_TOKEN")
+    rocketchat_auth_token = resolve_env_credential(ROCKETCHAT_AUTH_TOKEN_ENV)
     rocketchat_webhook_url = os.getenv("ROCKETCHAT_WEBHOOK_URL", "").strip()
     if rocketchat_auth_token or rocketchat_webhook_url:
         try:
             rocketchat_config = RocketChatConfig.model_validate(
                 {
-                    "server_url": os.getenv("ROCKETCHAT_SERVER_URL", "").strip(),
+                    "server_url": os.getenv(ROCKETCHAT_SERVER_URL_ENV, "").strip(),
                     "auth_token": rocketchat_auth_token,
-                    "user_id": os.getenv("ROCKETCHAT_USER_ID", "").strip(),
+                    "user_id": os.getenv(ROCKETCHAT_USER_ID_ENV, "").strip(),
                     "webhook_url": rocketchat_webhook_url,
-                    "default_channel": os.getenv("ROCKETCHAT_DEFAULT_CHANNEL", "").strip() or None,
+                    "default_channel": os.getenv(ROCKETCHAT_DEFAULT_CHANNEL_ENV, "").strip()
+                    or None,
                 }
             )
         except Exception as exc:
@@ -1285,16 +1309,17 @@ def load_env_integrations() -> list[dict[str, Any]]:
 
     # Private key is keyring-backed via wizard sync_env_secret; the rest stay
     # store/env only (relay_url, default_channel, auth_tag, buzz_path).
-    buzz_private_key = resolve_env_credential("BUZZ_PRIVATE_KEY")
+    buzz_private_key = resolve_env_credential(BUZZ_PRIVATE_KEY_ENV)
     if buzz_private_key:
         try:
             buzz_config = BuzzConfig.model_validate(
                 {
-                    "relay_url": os.getenv("BUZZ_RELAY_URL", "").strip() or "http://localhost:3000",
+                    "relay_url": os.getenv(BUZZ_RELAY_URL_ENV, "").strip()
+                    or "http://localhost:3000",
                     "private_key": buzz_private_key,
-                    "default_channel": os.getenv("BUZZ_DEFAULT_CHANNEL", "").strip(),
-                    "auth_tag": os.getenv("BUZZ_AUTH_TAG", "").strip(),
-                    "buzz_path": os.getenv("BUZZ_PATH", "").strip() or "buzz",
+                    "default_channel": os.getenv(BUZZ_DEFAULT_CHANNEL_ENV, "").strip(),
+                    "auth_tag": os.getenv(BUZZ_AUTH_TAG_ENV, "").strip(),
+                    "buzz_path": os.getenv(BUZZ_PATH_ENV, "").strip() or "buzz",
                 }
             )
         except Exception as exc:
