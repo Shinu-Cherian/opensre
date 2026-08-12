@@ -97,6 +97,13 @@ from config.constants.groundcover import (
     GROUNDCOVER_TENANT_UUID_ENV,
     GROUNDCOVER_TIMEZONE_ENV,
 )
+from config.constants.helm import (
+    HELM_KUBE_CONTEXT_ENV,
+    HELM_KUBECONFIG_ENV,
+    HELM_NAMESPACE_ENV,
+    HELM_PATH_ENV,
+    OSRE_HELM_INTEGRATION_ENV,
+)
 from config.constants.honeycomb import (
     HONEYCOMB_API_KEY_ENV,
     HONEYCOMB_BASE_URL_ENV,
@@ -187,6 +194,15 @@ from config.constants.servicenow import (
     SERVICENOW_USERNAME_ENV,
 )
 from config.constants.slack import SLACK_APP_TOKEN_ENV, SLACK_BOT_TOKEN_ENV
+from config.constants.smtp import (
+    SMTP_DEFAULT_TO_ENV,
+    SMTP_FROM_ADDRESS_ENV,
+    SMTP_HOST_ENV,
+    SMTP_PASSWORD_ENV,
+    SMTP_PORT_ENV,
+    SMTP_SECURITY_ENV,
+    SMTP_USERNAME_ENV,
+)
 from config.constants.telegram import (
     TELEGRAM_BOT_TOKEN_ENV,
     TELEGRAM_DEFAULT_CHAT_ID_ENV,
@@ -1100,7 +1116,7 @@ def load_env_integrations() -> list[dict[str, Any]]:
                 )
             )
 
-    helm_env_enabled = os.getenv("OSRE_HELM_INTEGRATION", "").strip().lower() in {
+    helm_env_enabled = os.getenv(OSRE_HELM_INTEGRATION_ENV, "").strip().lower() in {
         "1",
         "true",
         "yes",
@@ -1109,10 +1125,10 @@ def load_env_integrations() -> list[dict[str, Any]]:
         try:
             helm_env_config = HelmIntegrationConfig.model_validate(
                 {
-                    "helm_path": os.getenv("HELM_PATH", "helm").strip() or "helm",
-                    "kube_context": os.getenv("HELM_KUBE_CONTEXT", "").strip(),
-                    "kubeconfig": os.getenv("HELM_KUBECONFIG", "").strip(),
-                    "default_namespace": os.getenv("HELM_NAMESPACE", "").strip(),
+                    "helm_path": os.getenv(HELM_PATH_ENV, "helm").strip() or "helm",
+                    "kube_context": os.getenv(HELM_KUBE_CONTEXT_ENV, "").strip(),
+                    "kubeconfig": os.getenv(HELM_KUBECONFIG_ENV, "").strip(),
+                    "default_namespace": os.getenv(HELM_NAMESPACE_ENV, "").strip(),
                 }
             )
         except Exception as exc:
@@ -1341,18 +1357,18 @@ def load_env_integrations() -> list[dict[str, Any]]:
         if slack_view is not None:
             integrations.append(_active_env_record("slack", slack_view))
 
-    smtp_host = os.getenv("SMTP_HOST", "").strip()
+    smtp_host = os.getenv(SMTP_HOST_ENV, "").strip()
     if smtp_host:
         try:
             smtp_config = SMTPIntegrationConfig.model_validate(
                 {
                     "host": smtp_host,
-                    "port": os.getenv("SMTP_PORT", "").strip() or 587,
-                    "security": os.getenv("SMTP_SECURITY", "").strip() or "starttls",
-                    "username": os.getenv("SMTP_USERNAME", "").strip(),
-                    "password": resolve_env_credential("SMTP_PASSWORD"),
-                    "from_address": os.getenv("SMTP_FROM_ADDRESS", "").strip(),
-                    "default_to": os.getenv("SMTP_DEFAULT_TO", "").strip() or None,
+                    "port": os.getenv(SMTP_PORT_ENV, "").strip() or 587,
+                    "security": os.getenv(SMTP_SECURITY_ENV, "").strip() or "starttls",
+                    "username": os.getenv(SMTP_USERNAME_ENV, "").strip(),
+                    "password": resolve_env_credential(SMTP_PASSWORD_ENV),
+                    "from_address": os.getenv(SMTP_FROM_ADDRESS_ENV, "").strip(),
+                    "default_to": os.getenv(SMTP_DEFAULT_TO_ENV, "").strip() or None,
                 }
             )
         except Exception as exc:
