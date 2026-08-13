@@ -1,4 +1,4 @@
-"""Gather discovery budget — block MCP schema thrash (S1 parity gap).
+"""Gather discovery budget — block MCP schema thrash.
 
 Live symptom (session e4b6f56b…): one Windows-users metric ask spent the
 gather turn on ``list_posthog_tools`` + many ``call_posthog_tool`` exec
@@ -44,8 +44,8 @@ def _ok() -> ToolExecutionResult:
     return ToolExecutionResult(content='{"ok": true}', is_error=False)
 
 
-def test_s1_style_discovery_burst_is_capped() -> None:
-    """Red on the S1 thrash pattern: > budget discovery calls in one gather turn."""
+def test_discovery_burst_is_capped() -> None:
+    """More than the budget of discovery calls in one gather turn is blocked."""
     hooks = with_gather_discovery_budget()
     assert hooks.before_tool_call is not None
     assert hooks.after_tool_call is not None
@@ -88,7 +88,7 @@ def test_s1_style_discovery_burst_is_capped() -> None:
         assert hooks.before_tool_call(req) is None
         hooks.after_tool_call(req, _ok())
 
-    # Next discovery call (S1 kept going to 10–15) must be blocked.
+    # Next discovery call after the budget must be blocked.
     overflow = _request(
         "call_posthog_tool",
         {
@@ -296,7 +296,10 @@ def test_live_metric_query_call_is_narrower_than_non_discovery() -> None:
         {"tool_name": "query-trends", "arguments": {}},
     )
     assert is_live_metric_query_call("query_grafana_metrics", {"expr": "up"})
-    assert is_live_metric_query_call("posthog_mcp execute-sql", {})
+    assert is_live_metric_query_call("execute-sql", {})
+    # Exact membership only — no substring / dual-spelling guesses.
+    assert not is_live_metric_query_call("posthog_mcp execute-sql", {})
+    assert not is_live_metric_query_call("execute_sql", {})
     # Data fetches that are not metric queries.
     for target in ("issue_get", "search_tweets", "conversations_get"):
         assert not is_live_metric_query_call(

@@ -63,9 +63,13 @@ After an L1 gather, `reclassify_evidence_need_after_gather` may flip to
 Prefer `GatheredEvidence.tool_results` from the gather loop; fall back to
 `split`/`partition` on the rendered `Tool:`/`Result:` observation (see
 `gather_observation.iter_tool_result_blocks`) — never regex or phrase lists.
-HogQL / empty-result failures stay L1 (no L0 CTA). A metric gather that never
-ran a live query still gets a draft HogQL/PromQL block and one
-`/integrations setup …` line, then stops (`turns/metric_query_floor.py`).
+Empty SQL / vendor-query failures stay L1 (no L0 CTA). A metric gather that never
+ran a live query still gets a vendor-registered draft query block (via
+`platform.harness_ports.register_metric_query_draft`) and one
+`/integrations setup …` line, then stops — the **unformed-metric floor**
+(`turns/metric_query_floor.py`). Product cohort / signup-retention identity
+is core policy (`turns/cohort_identity.py`); vendors supply dialect drafts and
+optional observation parsers (`register_metric_cohort_resolver`).
 
 **No keyword intent routing around the action agent.** Do not scan user text
 with regex/keywords to skip gather, attach goals, or bypass `execute_actions`.

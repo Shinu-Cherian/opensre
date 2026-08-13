@@ -1,9 +1,20 @@
-"""Cursor-like floor when a metric gather never ran a live query.
+"""Floor applied when a metric gather never ran a live query.
 
-Parity S2: live tools can be connected and still fail to form a count query
-(unknown event, schema-only probes). The answer must still include a labeled
-draft HogQL or PromQL block and one ``/integrations setup …`` line, then stop —
-never invent a number, never burn extra ``/goal`` turns.
+Live tools can be connected and still fail to form a count query (unknown
+event, schema-only probes). The answer must still include a labeled draft
+query block (vendor-registered dialect, else a generic fence) and one
+``/integrations setup …`` line, then stop — never invent a number, never burn
+extra ``/goal`` turns.
+
+Product cohort / signup-retention SessionGoals
+(:mod:`core.agent_harness.turns.cohort_identity`) that leave identity open
+after live probes also get a vendor cohort draft when one is registered.
+Setup slash is omitted when the preferred analytics source is already
+connected.
+
+This policy applies for every preferred metric source — not a single vendor.
+Only the draft *text* and optional observation parsers are integration-owned
+via :mod:`platform.harness_ports`.
 """
 
 from __future__ import annotations
@@ -13,6 +24,10 @@ import json
 from collections.abc import Iterator
 from typing import Any
 
+from core.agent_harness.turns.cohort_identity import (
+    goal_needs_cohort_identity,
+    reply_reports_cohort_unverified,
+)
 from core.agent_harness.turns.evidence_kind import EvidenceKind
 from core.agent_harness.turns.evidence_need import EvidenceNeed, SetupCommandForSource
 from core.agent_harness.turns.gather_discovery_budget import is_live_metric_query_call
@@ -20,21 +35,18 @@ from core.agent_harness.turns.gather_observation import (
     GatheredEvidence,
     coerce_gathered_evidence,
 )
+from platform.harness_ports import (
+    metric_cohort_resolved_for,
+    metric_query_draft_for,
+)
 
 METRIC_UNFORMED_HANDOFF = "evidence_tier:metric_unformed"
 
-_DRAFT_HOGQL = """```sql
--- Draft HogQL: confirm event name and property filters, then run in PostHog.
--- This is not a live count.
-SELECT uniq(person_id)
-FROM events
-WHERE timestamp >= now() - INTERVAL 7 DAY
-```"""
-
-_DRAFT_PROMQL = """```promql
--- Draft PromQL: confirm metric name and window, then run in Grafana.
--- This is not a live reading.
-histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[1h])) by (le))
+# Last-resort fence when no analytics vendor registered a draft. Prefer empty
+# over inventing a vendor dialect in core — vendors must opt in for real drafts.
+_GENERIC_METRIC_DRAFT = """```text
+-- Draft metric query: confirm metric name, filters, and window in your
+-- analytics tool. This is not a live reading.
 ```"""
 
 
@@ -67,14 +79,14 @@ def gather_formed_live_metric_query(
     *,
     metric_source_ids: tuple[str, ...] = (),
 ) -> bool:
-    """True when gather executed a live metric/SQL/PromQL query.
+    """True when gather executed a live metric / query tool call.
 
     Discovery probes and other non-metric fetches (issue lookup, tweet search,
     alert-rule roster, …) must not suppress the draft-query floor.
 
     Fixture / native gather often labels the block with the analytics source
-    id (``Tool: posthog_mcp``) when a HogQL query already ran — including
-    syntax errors. Those stay L1 (honest answer, no setup CTA).
+    id when a query already ran — including syntax errors. Those stay L1
+    (honest answer, no setup CTA).
     """
     if evidence is None:
         return False
@@ -106,11 +118,67 @@ def _setup_service_id(need: EvidenceNeed) -> str | None:
     return None
 
 
-def _draft_for(need: EvidenceNeed) -> str:
-    sources = " ".join((*need.preferred_sources, *need.connected, *need.missing)).lower()
-    if "grafana" in sources:
-        return _DRAFT_PROMQL
-    return _DRAFT_HOGQL
+def _source_ids(need: EvidenceNeed) -> tuple[str, ...]:
+    return (*need.preferred_sources, *need.connected, *need.missing)
+
+
+def _draft_for(need: EvidenceNeed, *, cohort_goal: bool) -> str:
+    draft = metric_query_draft_for(_source_ids(need), cohort_goal=cohort_goal)
+    return draft if draft is not None else _GENERIC_METRIC_DRAFT
+
+
+def _cohort_identity_resolved(
+    need: EvidenceNeed,
+    evidence: GatheredEvidence | None,
+    reply: str,
+) -> bool:
+    """True when a vendor resolver says the cohort is live, else reply-only."""
+    resolved = metric_cohort_resolved_for(_source_ids(need), evidence, reply)
+    if resolved is not None:
+        return resolved
+    # No vendor resolver: an unverified reply keeps the floor; otherwise trust
+    # a formed live query's answer.
+    return not reply_reports_cohort_unverified(reply)
+
+
+def _session_goal_condition(session: Any | None) -> str:
+    """Read SessionGoal.condition without importing the session_goal package.
+
+    Importing ``SessionGoal`` here would load ``session_goal/__init__`` →
+    ``run_until`` → ``evaluate`` → this module and create a cycle.
+    """
+    if session is None:
+        return ""
+    goal = getattr(session, "session_goal", None)
+    condition = getattr(goal, "condition", None)
+    return condition if isinstance(condition, str) else ""
+
+
+def _setup_line(
+    need: EvidenceNeed,
+    *,
+    body: str,
+    setup_command_for: SetupCommandForSource,
+) -> str | None:
+    """The connect command to append as its own line, or ``None`` for no line.
+
+    ``None`` when there is no source to name, the surface renders no command,
+    or the reply already carries one — a second line reads as a second
+    instruction.
+    """
+    service_id = _setup_service_id(need)
+    if service_id is None:
+        return None
+    command = setup_command_for(service_id)
+    if not command or command in body:
+        return None
+    # The command minus the service id is the surface's connect verb, so a line
+    # naming a different source is still a setup line. Taken from the rendered
+    # command rather than a literal: core must not know the surface's syntax.
+    verb = command.replace(service_id, "").strip(" `")
+    if verb and verb in body:
+        return None
+    return command if command.startswith("`") else f"`{command}`"
 
 
 def apply_unformed_metric_floor(
@@ -119,32 +187,40 @@ def apply_unformed_metric_floor(
     *,
     observation: str | GatheredEvidence | None,
     setup_command_for: SetupCommandForSource,
+    session: Any | None = None,
+    goal_condition: str | None = None,
 ) -> str:
-    """Append a draft query + one setup slash when no live metric query ran.
+    """Append a draft query (+ setup when needed) for unformed metric answers.
 
-    No-op for non-metric turns and for gathers that already executed a query.
-    Does not duplicate a fence or setup command already present in the reply.
+    No-op for non-metric turns. For ordinary metrics, no-op when a live query
+    already ran. When the SessionGoal needs cohort identity and that identity
+    is still open, still append a draft fence — even after candidate probes.
+    Setup slash is skipped when the preferred source is already connected.
     """
     if need.kind is not EvidenceKind.METRIC_READ:
         return response_text
     evidence = coerce_gathered_evidence(observation)
-    if gather_formed_live_metric_query(
+    condition = goal_condition if goal_condition is not None else _session_goal_condition(session)
+    cohort_goal = goal_needs_cohort_identity(condition)
+    formed = gather_formed_live_metric_query(
         evidence,
         metric_source_ids=(*need.preferred_sources, *need.connected),
-    ):
+    )
+    # Live query is enough unless this SessionGoal still needs cohort identity.
+    if formed and (not cohort_goal or _cohort_identity_resolved(need, evidence, response_text)):
         return response_text
 
-    parts: list[str] = []
     body = (response_text or "").rstrip()
-    if body:
-        parts.append(body)
+    parts: list[str] = [body] if body else []
     if "```" not in body:
-        parts.append(_draft_for(need))
-    service_id = _setup_service_id(need)
-    if service_id is not None:
-        command = setup_command_for(service_id)
-        if command and command not in body and "/integrations setup" not in body:
-            parts.append(f"`{command}`" if not command.startswith("`") else command)
+        parts.append(_draft_for(need, cohort_goal=cohort_goal))
+    # No live query: still append setup even when connected. Cohort floor after
+    # live probes on an already-connected source: draft only — a reconnect CTA
+    # is the wrong next step.
+    if bool(need.missing) or not formed:
+        setup_line = _setup_line(need, body=body, setup_command_for=setup_command_for)
+        if setup_line is not None:
+            parts.append(setup_line)
     return "\n\n".join(parts)
 
 

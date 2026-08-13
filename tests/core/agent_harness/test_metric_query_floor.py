@@ -2,6 +2,13 @@
 
 from __future__ import annotations
 
+import pytest
+
+from core.agent_harness.session_goal.goal import SessionGoal
+from core.agent_harness.turns.cohort_identity import (
+    goal_needs_cohort_identity,
+    reply_reports_cohort_unverified,
+)
 from core.agent_harness.turns.evidence_kind import EvidenceKind
 from core.agent_harness.turns.evidence_need import EvidenceNeed, EvidenceTier
 from core.agent_harness.turns.gather_observation import GatheredEvidence
@@ -9,6 +16,18 @@ from core.agent_harness.turns.metric_query_floor import (
     apply_unformed_metric_floor,
     gather_formed_live_metric_query,
 )
+from integrations.grafana.metric_drafts import register_grafana_metric_drafts
+from integrations.posthog_mcp.metric_drafts import register_posthog_mcp_metric_drafts
+from platform.harness_ports import clear_metric_query_drafts
+
+
+@pytest.fixture(autouse=True)
+def _register_vendor_metric_drafts() -> None:
+    clear_metric_query_drafts()
+    register_posthog_mcp_metric_drafts()
+    register_grafana_metric_drafts()
+    yield
+    clear_metric_query_drafts()
 
 
 def _need(*, connected: tuple[str, ...] = ("posthog_mcp",)) -> EvidenceNeed:
@@ -65,7 +84,7 @@ def test_non_metric_fetch_does_not_count_as_live_metric_query() -> None:
 
 
 def test_unformed_floor_appends_draft_hogql_and_setup_slash() -> None:
-    """S2: connected PostHog, no count query → draft HogQL + one setup command."""
+    """Connected analytics, no count query → draft fence + one setup command."""
     observation = (
         "Tool: list_posthog_tools\nArguments: {}\nResult: []\n\n"
         "Tool: call_posthog_tool\n"
@@ -143,3 +162,180 @@ def test_grafana_unformed_floor_uses_promql() -> None:
         setup_command_for=lambda name: f"/integrations setup {name}",
     )
     assert text == original
+
+
+def test_signup_goal_unverified_after_live_probes_gets_draft_without_reconnect() -> None:
+    """Connected analytics ran candidate queries; signup still unresolved → draft only."""
+    observation = (
+        "Tool: call_posthog_tool\n"
+        'Arguments: {"tool_name": "event-definitions"}\n'
+        "Result: ['$pageview', 'login']\n\n"
+        "Tool: call_posthog_tool\n"
+        'Arguments: {"tool_name": "execute-sql", '
+        '"arguments": {"query": "SELECT 1 WHERE event = \'user_signed_up\'"}}\n'
+        "Result: 0\n\n"
+        "Tool: call_posthog_tool\n"
+        'Arguments: {"tool_name": "execute-sql", '
+        '"arguments": {"query": "SELECT 1 WHERE event = \'signed_up\'"}}\n'
+        "Result: 0"
+    )
+    reply = (
+        "Live PostHog returned no eligible Windows signups, so D7 retention is "
+        "unavailable, not 0%. The query recognized none of these candidate "
+        "signup events: user_signed_up, signed_up. signup event unverified."
+    )
+    session = type(
+        "S",
+        (),
+        {
+            "session_goal": SessionGoal(
+                condition=(
+                    "What is D7 retention for users who signed up on Windows in the last 30 days?"
+                ),
+                max_outer_turns=4,
+                host_owned=True,
+            )
+        },
+    )()
+    assert goal_needs_cohort_identity(session.session_goal.condition)
+    assert reply_reports_cohort_unverified(reply)
+    text = apply_unformed_metric_floor(
+        reply,
+        _need(connected=("posthog_mcp",)),
+        observation=observation,
+        setup_command_for=lambda name: f"/integrations setup {name}",
+        session=session,
+    )
+    assert "```sql" in text
+    assert "<signup_event>" in text
+    assert "/integrations setup" not in text
+
+
+def test_signup_goal_guessed_sql_event_without_schema_keeps_floor() -> None:
+    """Guessing event='user_signed_up' in HogQL must not count as verified identity."""
+    observation = (
+        "Tool: call_posthog_tool\n"
+        'Arguments: {"tool_name": "execute-sql", '
+        '"arguments": {"query": "SELECT … WHERE event = \'user_signed_up\'"}}\n'
+        "Result: 12%"
+    )
+    reply = "D7 retention is 12% for Windows signups (event user_signed_up)."
+    session = type(
+        "S",
+        (),
+        {
+            "session_goal": SessionGoal(
+                condition="D7 retention for users who signed up on Windows",
+                max_outer_turns=4,
+                host_owned=True,
+            )
+        },
+    )()
+    text = apply_unformed_metric_floor(
+        reply,
+        _need(),
+        observation=observation,
+        setup_command_for=lambda name: f"/integrations setup {name}",
+        session=session,
+    )
+    assert "```sql" in text
+    assert "<signup_event>" in text
+
+
+def test_signup_goal_verified_live_percent_skips_floor() -> None:
+    observation = (
+        "Tool: call_posthog_tool\n"
+        'Arguments: {"tool_name": "event-definitions"}\n'
+        "Result: ['user_signed_up', '$pageview']\n\n"
+        "Tool: call_posthog_tool\n"
+        'Arguments: {"tool_name": "execute-sql", '
+        '"arguments": {"query": "SELECT … WHERE event = \'user_signed_up\'"}}\n'
+        "Result: 12%"
+    )
+    original = "D7 retention is 12% for Windows signups (event user_signed_up)."
+    session = type(
+        "S",
+        (),
+        {
+            "session_goal": SessionGoal(
+                condition="D7 retention for users who signed up on Windows",
+                max_outer_turns=4,
+                host_owned=True,
+            )
+        },
+    )()
+    text = apply_unformed_metric_floor(
+        original,
+        _need(),
+        observation=observation,
+        setup_command_for=lambda name: f"/integrations setup {name}",
+        session=session,
+    )
+    assert text == original
+
+
+def test_cohort_floor_applies_with_grafana_only_preferred_source() -> None:
+    """Product cohort policy is not PostHog-gated — any preferred source drafts."""
+    need = EvidenceNeed(
+        kind=EvidenceKind.METRIC_READ,
+        preferred_sources=("grafana",),
+        connected=("grafana",),
+        missing=(),
+        tier=EvidenceTier.L1,
+        required_for_authoritative=True,
+    )
+    reply = "signup event unverified — cannot provide a retention percentage."
+    session = type(
+        "S",
+        (),
+        {
+            "session_goal": SessionGoal(
+                condition="D7 retention for users who signed up last month",
+                max_outer_turns=4,
+                host_owned=True,
+            )
+        },
+    )()
+    text = apply_unformed_metric_floor(
+        reply,
+        need,
+        observation="Tool: query_grafana_metrics\nArguments: {}\nResult: []",
+        setup_command_for=lambda name: f"/integrations setup {name}",
+        session=session,
+    )
+    assert "```promql" in text
+    assert "/integrations setup" not in text
+
+
+def test_unformed_floor_wraps_a_bare_setup_command_in_backticks_once() -> None:
+    """The appended command is code-formatted, and never double-wrapped."""
+    # Arrange
+    bare = apply_unformed_metric_floor(
+        "No live count.",
+        _need(),
+        observation="Tool: list_posthog_tools\nResult: []",
+        setup_command_for=lambda name: f"/connect {name}",
+    )
+    already_wrapped = apply_unformed_metric_floor(
+        "No live count.",
+        _need(),
+        observation="Tool: list_posthog_tools\nResult: []",
+        setup_command_for=lambda name: f"`/connect {name}`",
+    )
+
+    # Assert
+    assert "`/connect posthog_mcp`" in bare
+    assert "`/connect posthog_mcp`" in already_wrapped
+    assert "``/connect" not in already_wrapped
+
+
+def test_unformed_floor_omits_setup_when_the_surface_has_no_command() -> None:
+    """An empty command must append nothing rather than an empty code fence."""
+    text = apply_unformed_metric_floor(
+        "No live count.",
+        _need(),
+        observation="Tool: list_posthog_tools\nResult: []",
+        setup_command_for=lambda _name: "",
+    )
+
+    assert "/connect" not in text
