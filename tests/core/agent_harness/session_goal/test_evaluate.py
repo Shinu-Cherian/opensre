@@ -221,6 +221,43 @@ def test_turn_has_session_goal_evidence_counts_gather_successes() -> None:
     assert turn_has_session_goal_evidence(_result("done", gather_success=0)) is False
 
 
+def test_host_owned_fallback_route_without_tool_evidence_stays_active() -> None:
+    """Route identity is not evidence — unsupported fallbacks must not close.
+
+    ``cli_agent_fallback`` alone previously closed host-owned goals even when
+    no action/gather tool succeeded (draft-only / failed-query answers).
+    """
+    session = SessionCore()
+    attach_session_goal(
+        session,
+        SessionGoal(
+            condition="How many Windows users in the last 7 days?",
+            max_outer_turns=4,
+            host_owned=True,
+        ),
+    )
+    verdict = evaluate_session_goal(
+        session.session_goal,  # type: ignore[arg-type]
+        TurnResult(
+            final_intent="cli_agent_fallback",
+            action_result=ToolCallingTurnResult(
+                planned_count=0,
+                executed_count=0,
+                executed_success_count=0,
+                has_unhandled_clause=False,
+                handled=False,
+            ),
+            assistant_response_text=(
+                "I could not get a live count. Here is draft HogQL and a setup CTA."
+            ),
+            gather_success_count=0,
+        ),
+        session=session,
+    )
+    assert verdict.status == SessionGoalStatus.ACTIVE
+    assert verdict.reason == SessionGoalReason.WAITING_HOST_SIGNAL
+
+
 def test_host_owned_without_tools_or_achieved_tag_stays_active() -> None:
     session = SessionCore()
     goal = SessionGoal(

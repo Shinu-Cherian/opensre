@@ -21,7 +21,9 @@ claim, not proof. This module is the independent host check:
   gather) and the reply is non-empty → achieve (same-turn answer). Waiting for
   a scrubbed/forgotten tag forced a redundant outer turn that repeated the
   live answer (parity S1 R7). Gather successes count: metric handoffs often
-  leave action ``executed_success_count`` at 0.
+  leave action ``executed_success_count`` at 0. Final-route identity alone
+  (``cli_agent_fallback`` / summarize) is not evidence — unsupported fallbacks
+  must not close the goal.
 * ``achieved`` with no checklist on a handoff goal → require tool evidence, or
   stay active.
 * Hosts may wrap :func:`evaluate_session_goal` with an LLM confirm for the
@@ -255,6 +257,8 @@ def evaluate_session_goal(
             # wait for session_goal:achieved — that tag is scrubbed from the
             # user-visible reply and models often omit it, which previously
             # forced a second outer turn that repeated the same metric answer.
+            # Require real action/gather successes — route identity alone would
+            # let unsupported fallbacks close the goal without evidence.
             verdict = SessionGoalVerdict(
                 status=SessionGoalStatus.ACHIEVED,
                 reason=SessionGoalReason.ACHIEVED_TOOL_EVIDENCE,

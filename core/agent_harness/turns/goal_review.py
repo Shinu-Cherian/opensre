@@ -35,7 +35,7 @@ from core.agent_harness.closed_llm_verdict import invoke_closed_goal_verdict
 from core.agent_harness.turns.gather_discovery_budget import (
     bridge_tool_target,
     is_gather_discovery_call,
-    is_mcp_metric_target,
+    is_live_metric_query_call,
 )
 from core.events import RuntimeEvent, RuntimeEventCallback, ToolExecutionEndEvent
 from core.llm.types import AgentLLMClient
@@ -149,20 +149,13 @@ def _gather_ran_only_discovery(calls: list[ExecutedToolCall]) -> bool:
 
 
 def _gather_ran_metric_query(calls: list[ExecutedToolCall]) -> bool:
-    """True when at least one executed call looks like a real metric query."""
-    for name, args in calls:
-        if is_gather_discovery_call(name, args):
-            continue
-        target = bridge_tool_target(args)
-        if target and is_mcp_metric_target(target):
-            return True
-        # Non-bridge tools (Grafana, native integrations) count as data fetches.
-        if not name.startswith("call_") and not name.startswith("list_"):
-            return True
-        # Bridge call classified as non-discovery (e.g. command-style query).
-        if name.startswith("call_") and name.endswith("_tool"):
-            return True
-    return False
+    """True when at least one executed call was a live metric/SQL/PromQL fetch.
+
+    Deliberately narrower than "not discovery": a Sentry issue read or a Slack
+    conversation fetch is real evidence but not a formed metric query, and the
+    reviewer note must not imply one ran.
+    """
+    return any(is_live_metric_query_call(name, args) for name, args in calls)
 
 
 @dataclass
