@@ -12,9 +12,7 @@ point the reader at ``/background show`` for the rest.
 
 from __future__ import annotations
 
-from surfaces.interactive_shell.session.background_investigations import (
-    BackgroundInvestigationRecord,
-)
+from platform.background_investigations.types import BackgroundInvestigationRecord
 
 _COMMAND_CHARS = 200
 _ROOT_CAUSE_CHARS = 1000
@@ -37,3 +35,6 @@ def summary_sections(
         _items(record.top_analysis),
         _items(record.next_steps),
     )
+
+
+__all__ = ["summary_sections"]
