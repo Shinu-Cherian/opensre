@@ -51,11 +51,19 @@ print(result.assistant_response_text)
 
 ## Session Lifecycle and Integration Setup
 
-For production usage where integrations and session persistence are required, use `SessionManager` to bootstrap or resolve the session state:
+For production usage where integrations and session persistence are required, use `SessionManager` to bootstrap or resolve session state, and supply a reasoning client provider for assistant streaming:
 
 ```python
 from core.agent_harness.session import SessionManager
-from core.agent_harness.turns.headless_dispatch import HeadlessAgent, NullToolProvider
+from core.agent_harness.turns.headless_dispatch import (
+    HeadlessAgent,
+    NullToolProvider,
+    StaticReasoningClientProvider,
+)
+
+class CustomReasoningClient:
+    def invoke_stream(self, prompt: str):
+        yield "OpenSRE investigation result: payment-gateway latency is 45ms."
 
 # 1. Initialize SessionManager
 session_manager = SessionManager()
@@ -66,10 +74,11 @@ session = session_manager.create(
     warm_integrations=False,
 )
 
-# 3. Instantiate HeadlessAgent tied to the session state object
+# 3. Instantiate HeadlessAgent with session state and reasoning client
 agent = HeadlessAgent(
     tools=NullToolProvider(),
     session=session,
+    reasoning=StaticReasoningClientProvider(client=CustomReasoningClient()),
 )
 
 # 4. Programmatically run investigation turns
