@@ -12,16 +12,16 @@ The Python API lives under the `core.agent_harness` package and uses explicit po
 
 | Class / Entry Point | Import Path | Description |
 | --- | --- | --- |
-| `AgentHarness` | `core.agent_harness.harness` | Handles process environment loading, session initialization/resolution, and context setup. |
-| `HarnessConfig` | `core.agent_harness.harness` | Configuration object specifying environment loading, integration hydration, and session persistence options. |
+| `SessionManager` | `core.agent_harness.session` | Single lifecycle owner that manages session creation, resolution, storage, and rotation. |
+| `SessionCore` | `core.agent_harness.session` | Surface-agnostic in-memory session state object containing history, context, and stores. |
 | `HeadlessAgent` | `core.agent_harness.turns.headless_dispatch` | Programmatic agent driver that executes full turns headlessly using provided ports. |
-| `SessionManager` | `core.agent_harness.session` | Manages session creation, resolution, storage, and lifecycle rotation. |
 
-## Quick Start: Basic Headless Dispatch
+## Quick Start: In-Memory Headless Dispatch
 
-To execute a single turn programmatically using default in-memory adapters:
+To execute a single turn programmatically using default in-memory adapters and a custom reasoning client:
 
 ```python
+from core.agent_harness.session import SessionManager
 from core.agent_harness.turns.headless_dispatch import (
     HeadlessAgent,
     NullToolProvider,
@@ -32,44 +32,44 @@ class CustomReasoningClient:
     def invoke_stream(self, prompt: str):
         yield "OpenSRE investigation complete: All systems normal."
 
-# Instantiate a headless agent with null tools and custom reasoning provider
+# 1. Create a session via SessionManager
+session_manager = SessionManager()
+session = session_manager.create()
+
+# 2. Instantiate HeadlessAgent with session state and custom reasoning client
 agent = HeadlessAgent(
     tools=NullToolProvider(),
+    session=session,
     reasoning=StaticReasoningClientProvider(client=CustomReasoningClient()),
 )
 
-# Dispatch a message programmatically
+# 3. Dispatch a message programmatically
 result = agent.dispatch("Check system health status")
 print(result.assistant_response_text)
 # → "OpenSRE investigation complete: All systems normal."
 ```
 
-## Session Harness and Integration Setup
+## Session Lifecycle and Integration Setup
 
-For real-world usage where environment variables, integrations, and session storage are required, use `AgentHarness` to initialize the runtime before creating the agent driver:
+For production usage where integrations and session persistence are required, use `SessionManager` to bootstrap or resolve the session state:
 
 ```python
-from core.agent_harness.harness import AgentHarness, HarnessConfig
+from core.agent_harness.session import SessionManager
 from core.agent_harness.turns.headless_dispatch import HeadlessAgent, NullToolProvider
 
-# 1. Configure process environment loading and integration hydration
-config = HarnessConfig(
-    load_env=True,
+# 1. Initialize SessionManager
+session_manager = SessionManager()
+
+# 2. Create a session with hydrated integrations
+session = session_manager.create(
     hydrate_integrations=True,
-    warm_integrations=True,
-    persistent_tasks=True,
+    warm_integrations=False,
 )
 
-# 2. Run harness startup to initialize environment and session
-harness = AgentHarness(config)
-startup_result = harness.startup()
-session = startup_result.session
-
-# 3. Instantiate the headless agent tied to the initialized session store
+# 3. Instantiate HeadlessAgent tied to the session state object
 agent = HeadlessAgent(
     tools=NullToolProvider(),
-    session=session.store,
-    prompts=startup_result.prompts,
+    session=session,
 )
 
 # 4. Programmatically run investigation turns
@@ -86,7 +86,6 @@ To create, resolve, or rotate persistent agent sessions programmatically:
 ```python
 from core.agent_harness.session import SessionManager
 
-# Create a session manager instance
 session_manager = SessionManager()
 
 # Create a fresh session
