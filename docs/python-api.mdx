@@ -6,22 +6,23 @@ description: "Embed and drive OpenSRE agent sessions programmatically from Pytho
 
 OpenSRE provides a decoupled Python API that allows developers to instantiate, configure, and drive agent turns programmatically from Python applications, web services, or custom scripts without relying on the interactive terminal surface.
 
-The Python API lives under the `core.agent_harness` package and uses explicit port adapters for session state, tool execution, and LLM reasoning.
+The public host API is `AgentSession` (`core.agent_harness.harness`). Every surface (shell, gateway, web, CLI, embedder) interacts with the agent runtime through `AgentSession`.
 
 ## Core Concepts
 
 | Class / Entry Point | Import Path | Description |
 | --- | --- | --- |
-| `SessionManager` | `core.agent_harness.session` | Single lifecycle owner that manages session creation, resolution, storage, and rotation. |
-| `SessionCore` | `core.agent_harness.session` | Surface-agnostic in-memory session state object containing history, context, and stores. |
-| `HeadlessAgent` | `core.agent_harness.turns.headless_dispatch` | Programmatic agent driver that executes full turns headlessly using provided ports. |
+| `AgentSession` | `core.agent_harness.harness` | Public host API for session startup, chat turns, multi-step goal loops, and investigations. |
+| `SessionConfig` | `core.agent_harness.harness` | Configuration object specifying environment loading, integration hydration, and session options. |
+| `HeadlessAgent` | `core.agent_harness.turns.headless_dispatch` | Programmatic agent driver that executes turns headlessly using provided port adapters. |
+| `configure_process` | `bootstrap.process` | Shared process boot utility to initialize environment, telemetry, and adapters for embedded runs. |
 
 ## Quick Start: In-Memory Headless Dispatch
 
 To execute a single turn programmatically using default in-memory adapters and a custom reasoning client:
 
 ```python
-from core.agent_harness.session import SessionManager
+from core.agent_harness.harness import AgentSession, SessionConfig
 from core.agent_harness.turns.headless_dispatch import (
     HeadlessAgent,
     NullToolProvider,
@@ -32,29 +33,32 @@ class CustomReasoningClient:
     def invoke_stream(self, prompt: str):
         yield "OpenSRE investigation complete: All systems normal."
 
-# 1. Create a session via SessionManager
-session_manager = SessionManager()
-session = session_manager.create()
+# 1. Initialize AgentSession
+session = AgentSession(SessionConfig(load_env=False))
+session.startup()
 
-# 2. Instantiate HeadlessAgent with session state and custom reasoning client
-agent = HeadlessAgent(
-    tools=NullToolProvider(),
-    session=session,
-    reasoning=StaticReasoningClientProvider(client=CustomReasoningClient()),
+# 2. Attach a headless agent dispatcher with custom reasoning provider
+session.attach_agent(
+    HeadlessAgent(
+        tools=NullToolProvider(),
+        session=session.session,
+        reasoning=StaticReasoningClientProvider(client=CustomReasoningClient()),
+    )
 )
 
-# 3. Dispatch a message programmatically
-result = agent.dispatch("Check system health status")
-print(result.assistant_response_text)
+# 3. Dispatch a chat turn programmatically
+result = session.chat("Check system health status")
+print(result.primary_response_text)
 # → "OpenSRE investigation complete: All systems normal."
 ```
 
-## Session Lifecycle and Integration Setup
+## Session Lifecycle and Process Boot
 
-For production usage where integrations and session persistence are required, use `SessionManager` to bootstrap or resolve session state, and supply a reasoning client provider for assistant streaming:
+For embedded applications or production integrations where process environment and integrations need to be booted:
 
 ```python
-from core.agent_harness.session import SessionManager
+from bootstrap.process import EMBEDDED_PROFILE, configure_process
+from core.agent_harness.harness import AgentSession, SessionConfig
 from core.agent_harness.turns.headless_dispatch import (
     HeadlessAgent,
     NullToolProvider,
@@ -65,62 +69,79 @@ class CustomReasoningClient:
     def invoke_stream(self, prompt: str):
         yield "OpenSRE investigation result: payment-gateway latency is 45ms."
 
-# 1. Initialize SessionManager
-session_manager = SessionManager()
+# 1. Boot process environment with EMBEDDED_PROFILE
+configure_process(EMBEDDED_PROFILE)
 
-# 2. Create a session with hydrated integrations
-session = session_manager.create(
-    hydrate_integrations=True,
-    warm_integrations=False,
+# 2. Start an AgentSession
+session = AgentSession.start(
+    SessionConfig(
+        load_env=True,
+        hydrate_integrations=True,
+        warm_integrations=False,
+    )
 )
 
-# 3. Instantiate HeadlessAgent with session state and reasoning client
-agent = HeadlessAgent(
-    tools=NullToolProvider(),
-    session=session,
-    reasoning=StaticReasoningClientProvider(client=CustomReasoningClient()),
+# 3. Attach headless agent driver
+session.attach_agent(
+    HeadlessAgent(
+        tools=NullToolProvider(),
+        session=session.session,
+        reasoning=StaticReasoningClientProvider(client=CustomReasoningClient()),
+    )
 )
 
-# 4. Programmatically run investigation turns
-turn_result = agent.dispatch("Investigate latency spike on payment-gateway service")
+# 4. Programmatically run chat turns across the session
+turn_result = session.chat("Investigate latency spike on payment-gateway service")
 
-if turn_result.assistant_response_text:
-    print(f"Agent Output: {turn_result.assistant_response_text}")
+if turn_result.answered:
+    print(f"Agent Output: {turn_result.primary_response_text}")
 ```
 
-## Programmatic Session Management
+## Running Multi-Turn Goal Loops (`chat_until_goal`)
 
-To create, resolve, or rotate persistent agent sessions programmatically:
+`AgentSession.chat_until_goal` executes `session.chat()` repeatedly in a loop until an outer `SessionGoal` completes or reaches its turn ceiling:
 
 ```python
-from core.agent_harness.session import SessionManager
-
-session_manager = SessionManager()
-
-# Create a fresh session
-new_session = session_manager.create(
-    hydrate_integrations=True,
-    warm_integrations=False,
+from bootstrap.process import EMBEDDED_PROFILE, configure_process
+from core.agent_harness.harness import AgentSession, SessionConfig
+from core.agent_harness.turns.headless_dispatch import (
+    HeadlessAgent,
+    NullToolProvider,
+    StaticReasoningClientProvider,
 )
-print(f"Created session ID: {new_session.session_id}")
 
-# Resume an existing session by ID
-resumed_session = session_manager.resolve(
-    new_session.session_id,
-    hydrate_integrations=True,
-    warm_integrations=True,
+class GoalReasoningClient:
+    def invoke_stream(self, prompt: str):
+        yield "Goal step executed successfully."
+
+# 1. Boot process and start session
+configure_process(EMBEDDED_PROFILE)
+session = AgentSession.start(SessionConfig(load_env=True))
+
+# 2. Attach headless dispatcher
+session.attach_agent(
+    HeadlessAgent(
+        tools=NullToolProvider(),
+        session=session.session,
+        reasoning=StaticReasoningClientProvider(client=GoalReasoningClient()),
+    )
 )
-print(f"Resumed session ID: {resumed_session.session_id}")
+
+# 3. Run chat_until_goal to execute until multi-step goal completion
+goal_result = session.chat_until_goal("Audit all active production alert rules")
+
+print("Goal status:", goal_result.status)
+print("Turns executed:", len(goal_result.history))
 ```
 
-## Error Handling and Result Inspection
+## Result Inspection
 
-`agent.dispatch()` returns a `TurnResult` dataclass containing detailed metadata about the executed turn:
+`session.chat()` returns a `TurnResult` dataclass containing detailed metadata about the executed turn:
 
 ```python
-result = agent.dispatch("Analyze error rates in auth-service")
+result = session.chat("Analyze error rates in auth-service")
 
-# Inspect turn outcome using TurnResult properties
+# Inspect turn outcome
 if result.answered:
     print("Turn answered successfully.")
     print("Response:", result.primary_response_text)
