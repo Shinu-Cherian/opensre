@@ -1,11 +1,11 @@
 ---
-title: "GitHub Stars to Slack Workflow"
-description: "Step-by-step checklist to schedule GitHub status and repository digests to Slack without a OS keyring"
+title: "GitHub PR Sweep to Slack Workflow"
+description: "Step-by-step checklist to schedule GitHub pull request sweeps and repository digests to Slack without an OS keyring"
 ---
 
-OpenSRE allows teams to automate periodic digests — such as GitHub repository activity, PR sweeps, and work status reports — and deliver them directly to a Slack channel on a cron schedule.
+OpenSRE allows teams to automate periodic digests — such as GitHub PR sweeps and repository work status reports — and deliver them directly to a Slack channel on a cron schedule.
 
-This guide provides a copy-pasteable checklist to set up a GitHub-to-Slack scheduled loop using environment variables without requiring OS keyring storage.
+This guide provides a copy-pasteable checklist to set up a GitHub PR sweep scheduled loop using environment variables without requiring OS keyring storage.
 
 ## Prerequisites
 
@@ -34,14 +34,14 @@ Using `SLACK_WEBHOOK_URL` in `.env` bypasses system keyring storage, making this
 
 ---
 
-### 2. Schedule the GitHub & Stars Digest
+### 2. Schedule the GitHub PR Sweep
 
-Use `opensre cron add` to schedule a recurring digest delivered to Slack.
+Use `opensre cron add` to schedule a recurring PR sweep digest delivered to Slack.
 
 ```bash
-# Schedule a daily GitHub PR and status digest weekdays at 09:00 AM
+# Schedule a daily GitHub PR sweep digest weekdays at 09:00 AM
 opensre cron add --kind github_pr_sweep \
-  --name "GitHub Stars and Status Digest" \
+  --name "GitHub PR Sweep Digest" \
   --cron "0 9 * * 1-5" \
   --tz Europe/London \
   --provider slack
