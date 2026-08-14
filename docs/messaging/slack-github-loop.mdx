@@ -18,15 +18,19 @@ This guide provides a copy-pasteable checklist to set up a GitHub PR sweep sched
 
 ### 1. Configure GitHub Integration
 
-Before scheduling a PR sweep, ensure the GitHub integration is registered and verified:
+Before scheduling a PR sweep, ensure GitHub is authorized and registered on your host. Note that `opensre integrations setup github` opens an interactive prompt for browser authorization, so execute this step once during initial machine or workstation setup:
 
 ```bash
-# Register GitHub token and repo scope
+# Interactively register GitHub authorization and repo scope (run once during machine setup)
 opensre integrations setup github
 
-# Verify integration health
+# Verify integration health and active status
 opensre integrations verify github
 ```
+
+<Note>
+`opensre integrations setup github` is an interactive setup step that saves active credentials to `~/.opensre/integrations.json`. For non-interactive CI/CD runners or container deployments, run interactive setup on the host or mount the pre-configured `~/.opensre/integrations.json` store.
+</Note>
 
 ---
 
@@ -40,7 +44,7 @@ export SLACK_WEBHOOK_URL="https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
 ```
 
 <Note>
-Using `SLACK_WEBHOOK_URL` in `.env` bypasses system keyring storage, making this approach suitable for CI/CD runners, headless servers, and containerized deployments. See [Environment Variables](/configuration/environment-variables) for all supported options.
+Using `SLACK_WEBHOOK_URL` in `.env` bypasses system keyring storage, making this approach suitable for headless servers, background daemons, and containerized deployments. See [Environment Variables](/configuration/environment-variables) for all supported options.
 </Note>
 
 ---
@@ -84,7 +88,7 @@ opensre cron run <task_id>
 
 ## Copy-Pasteable Task Checklist
 
-- [ ] Run `opensre integrations setup github` and verify with `opensre integrations verify github`
+- [ ] Run `opensre integrations setup github` (interactive) and verify with `opensre integrations verify github`
 - [ ] Set `SLACK_WEBHOOK_URL` in `.env` or process environment
 - [ ] Run `opensre cron add --kind github_pr_sweep --cron "0 9 * * 1-5" --provider slack`
 - [ ] Run `opensre cron list` to retrieve the task ID
