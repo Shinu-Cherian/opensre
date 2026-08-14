@@ -29,7 +29,7 @@ opensre integrations verify github
 ```
 
 <Note>
-`opensre integrations setup github` is an interactive setup step that saves active credentials to `~/.opensre/integrations.json`. For non-interactive CI/CD runners or container deployments, run interactive setup on the host or mount the pre-configured `~/.opensre/integrations.json` store.
+`opensre integrations setup github` is an interactive setup step that saves active credentials to `~/.opensre/integrations.json`. For non-interactive CI/CD runners or container deployments, either set `OPENSRE_INTEGRATIONS_STORE_PATH` to point to your pre-configured integrations JSON store path (or mount at `OPENSRE_CONTEXT_ROOT` / `~/.opensre/integrations.json`).
 </Note>
 
 ---
@@ -90,6 +90,7 @@ opensre cron run <task_id>
 
 - [ ] Run `opensre integrations setup github` (interactive) and verify with `opensre integrations verify github`
 - [ ] Set `SLACK_WEBHOOK_URL` in `.env` or process environment
+- [ ] Set `OPENSRE_INTEGRATIONS_STORE_PATH` if using a custom integrations store path in container/CI environments
 - [ ] Run `opensre cron add --kind github_pr_sweep --cron "0 9 * * 1-5" --provider slack`
 - [ ] Run `opensre cron list` to retrieve the task ID
 - [ ] Execute `opensre cron run <task_id>` and verify Slack message delivery
