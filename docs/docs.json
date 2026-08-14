@@ -194,6 +194,7 @@
               "messaging/index",
               "smtp",
               "messaging/slack",
+              "messaging/slack-github-loop",
               "messaging/discord",
               "messaging/telegram",
               "messaging/rocketchat",

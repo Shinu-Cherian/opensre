@@ -1,0 +1,80 @@
+---
+title: "GitHub Stars to Slack Workflow"
+description: "Step-by-step checklist to schedule GitHub status and repository digests to Slack without a OS keyring"
+---
+
+OpenSRE allows teams to automate periodic digests — such as GitHub repository activity, PR sweeps, and work status reports — and deliver them directly to a Slack channel on a cron schedule.
+
+This guide provides a copy-pasteable checklist to set up a GitHub-to-Slack scheduled loop using environment variables without requiring OS keyring storage.
+
+## Prerequisites
+
+- An incoming Slack Webhook URL. See the [Slack Integration Guide](/messaging/slack#step-1-create-a-slack-incoming-webhook).
+- A GitHub Personal Access Token (`GITHUB_TOKEN`) with `repo` read access. See the [GitHub Integration Guide](/github).
+
+---
+
+## Step-by-Step Checklist
+
+### 1. Environment Setup (Without Keyring)
+
+Export the credentials directly in your environment or place them in your project's `.env` file:
+
+```bash
+# Slack channel incoming webhook URL
+export SLACK_WEBHOOK_URL="https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+
+# GitHub access token
+export GITHUB_TOKEN="your_github_personal_access_token"
+```
+
+<Note>
+Using `SLACK_WEBHOOK_URL` in `.env` bypasses system keyring storage, making this approach suitable for CI/CD runners, headless servers, and containerized deployments. See [Environment Variables](/configuration/environment-variables) for all supported options.
+</Note>
+
+---
+
+### 2. Schedule the GitHub & Stars Digest
+
+Use `opensre cron add` to schedule a recurring digest delivered to Slack.
+
+```bash
+# Schedule a daily GitHub PR and status digest weekdays at 09:00 AM
+opensre cron add --kind github_pr_sweep \
+  --name "GitHub Stars and Status Digest" \
+  --cron "0 9 * * 1-5" \
+  --tz Europe/London \
+  --provider slack
+```
+
+For more options on schedule expressions and timezones, see [Scheduled Deliveries (Cron)](/cron).
+
+---
+
+### 3. Verify Scheduled Tasks
+
+List all configured cron tasks to obtain the newly generated task ID:
+
+```bash
+opensre cron list
+```
+
+---
+
+### 4. Confirm Slack Delivery
+
+Run the scheduled task immediately to confirm end-to-end delivery to your Slack channel without waiting for the next cron trigger:
+
+```bash
+opensre cron run <task_id>
+```
+
+---
+
+## Copy-Pasteable Task Checklist
+
+- [ ] Set `SLACK_WEBHOOK_URL` in `.env` or process environment
+- [ ] Set `GITHUB_TOKEN` for repository access
+- [ ] Run `opensre cron add --kind github_pr_sweep --cron "0 9 * * 1-5" --provider slack`
+- [ ] Run `opensre cron list` to retrieve the task ID
+- [ ] Execute `opensre cron run <task_id>` and verify Slack message delivery
