@@ -17,7 +17,7 @@ The public host API is `AgentSession` (`core.agent_harness.harness`). Every surf
 | `HeadlessAgent` | `core.agent_harness.turns.headless_dispatch` | Programmatic agent driver that executes turns headlessly using provided port adapters. |
 | `configure_process` | `bootstrap.process` | Shared process boot utility to initialize environment, telemetry, and adapters for embedded runs. |
 
-## Quick Start: In-Memory Headless Dispatch
+## Quick Start: Basic Headless Dispatch
 
 To execute a single turn programmatically using default in-memory adapters and a custom reasoning client:
 
@@ -33,37 +33,32 @@ class CustomReasoningClient:
     def invoke_stream(self, prompt: str):
         yield "OpenSRE investigation complete: All systems normal."
 
-# 1. Initialize AgentSession
-session = AgentSession(SessionConfig(load_env=False))
-session.startup()
+# 1. Initialize AgentSession and startup to get SessionCore state
+agent_session = AgentSession(SessionConfig(load_env=False))
+startup = agent_session.startup()
 
 # 2. Attach a headless agent dispatcher with custom reasoning provider
-session.attach_agent(
+agent_session.attach_agent(
     HeadlessAgent(
         tools=NullToolProvider(),
-        session=session.session,
+        session=startup.session,
         reasoning=StaticReasoningClientProvider(client=CustomReasoningClient()),
     )
 )
 
 # 3. Dispatch a chat turn programmatically
-result = session.chat("Check system health status")
+result = agent_session.chat("Check system health status")
 print(result.primary_response_text)
 # → "OpenSRE investigation complete: All systems normal."
 ```
 
 ## Session Lifecycle and Process Boot
 
-For embedded applications or production integrations where process environment and integrations need to be booted:
+For embedded applications or production integrations, use `AgentSession.start()` to initialize environment, integrations, and session state in one step:
 
 ```python
 from bootstrap.process import EMBEDDED_PROFILE, configure_process
 from core.agent_harness.harness import AgentSession, SessionConfig
-from core.agent_harness.turns.headless_dispatch import (
-    HeadlessAgent,
-    NullToolProvider,
-    StaticReasoningClientProvider,
-)
 
 class CustomReasoningClient:
     def invoke_stream(self, prompt: str):
@@ -72,7 +67,7 @@ class CustomReasoningClient:
 # 1. Boot process environment with EMBEDDED_PROFILE
 configure_process(EMBEDDED_PROFILE)
 
-# 2. Start an AgentSession
+# 2. Start an AgentSession (automatically boots session and attaches default agent)
 session = AgentSession.start(
     SessionConfig(
         load_env=True,
@@ -81,16 +76,7 @@ session = AgentSession.start(
     )
 )
 
-# 3. Attach headless agent driver
-session.attach_agent(
-    HeadlessAgent(
-        tools=NullToolProvider(),
-        session=session.session,
-        reasoning=StaticReasoningClientProvider(client=CustomReasoningClient()),
-    )
-)
-
-# 4. Programmatically run chat turns across the session
+# 3. Programmatically run chat turns across the session
 turn_result = session.chat("Investigate latency spike on payment-gateway service")
 
 if turn_result.answered:
@@ -104,30 +90,12 @@ if turn_result.answered:
 ```python
 from bootstrap.process import EMBEDDED_PROFILE, configure_process
 from core.agent_harness.harness import AgentSession, SessionConfig
-from core.agent_harness.turns.headless_dispatch import (
-    HeadlessAgent,
-    NullToolProvider,
-    StaticReasoningClientProvider,
-)
-
-class GoalReasoningClient:
-    def invoke_stream(self, prompt: str):
-        yield "Goal step executed successfully."
 
 # 1. Boot process and start session
 configure_process(EMBEDDED_PROFILE)
 session = AgentSession.start(SessionConfig(load_env=True))
 
-# 2. Attach headless dispatcher
-session.attach_agent(
-    HeadlessAgent(
-        tools=NullToolProvider(),
-        session=session.session,
-        reasoning=StaticReasoningClientProvider(client=GoalReasoningClient()),
-    )
-)
-
-# 3. Run chat_until_goal to execute until multi-step goal completion
+# 2. Run chat_until_goal to execute until multi-step goal completion
 goal_result = session.chat_until_goal("Audit all active production alert rules")
 
 print("Goal status:", goal_result.status)
