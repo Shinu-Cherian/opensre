@@ -111,7 +111,10 @@ session = AgentSession.start()
 outcome = session.chat_until_goal(
     "Audit active production alert rules and summarize risky thresholds.",
     goal=SessionGoal(
-        condition="Every active production alert rule has been checked.",
+        condition=(
+            "Every active production alert rule has been checked and risky "
+            "thresholds have been summarized."
+        ),
         checklist=(
             "List active production alert rules",
             "Check each threshold and evaluation window",
@@ -127,12 +130,12 @@ if outcome.last_result.answered:
     print(outcome.last_result.primary_response_text)
 ```
 
-The loop stops when the goal is achieved, cancelled, cleared, or its turn
-budget is exhausted. The result contains the final `goal`, the `last_result`
-from `chat`, and `turn_count`. Without `goal=`, the first action turn must
-attach a goal; otherwise `chat_until_goal` returns after that one turn. Use
-`cancel_requested` to stop between turns and `on_progress` to receive checklist
-updates.
+The loop stops when the goal is achieved, paused, cancelled, cleared, or its
+turn budget is exhausted. The result contains the final `goal`, the
+`last_result` from `chat`, and `turn_count`. Without `goal=`, the first action
+turn must attach a goal; otherwise `chat_until_goal` returns after that one
+turn. Use `cancel_requested` to stop between turns and `on_progress` to receive
+checklist updates.
 
 ## Custom grounding context
 
