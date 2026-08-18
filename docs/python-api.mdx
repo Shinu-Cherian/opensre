@@ -1,122 +1,200 @@
 ---
 title: "Python API"
 slug: "python-api"
-description: "Embed and drive OpenSRE agent sessions programmatically from Python code"
+description: "Drive the OpenSRE agent in-process from Python."
 ---
 
-OpenSRE provides a decoupled Python API that allows developers to instantiate, configure, and drive agent turns programmatically from Python applications, web services, or custom scripts without relying on the interactive terminal surface.
+Use the Python API when your code runs on the same machine as OpenSRE and you
+want agent responses without invoking the CLI. For network access, use the
+[HTTP API](/api). To supply your own output sink, tools, prompts, or error
+reporting and drive one agent across many turns, see
+[Hosting the Agent](/hosting-the-agent).
 
-The public host API is `AgentSession` (`core.agent_harness.harness`). Every surface (shell, gateway, web, CLI, embedder) interacts with the agent runtime through `AgentSession`.
+## Prerequisites
 
-## Core Concepts
+The standalone CLI installer does not provide an importable package. Install
+from a source checkout:
 
-| Class / Entry Point | Import Path | Description |
-| --- | --- | --- |
-| `AgentSession` | `core.agent_harness.harness` | Public host API for session startup, chat turns, multi-step goal loops, and investigations. |
-| `SessionConfig` | `core.agent_harness.harness` | Configuration object specifying environment loading, integration hydration, and session options. |
-| `HeadlessAgent` | `core.agent_harness.turns.headless_dispatch` | Programmatic agent driver that executes turns headlessly using provided port adapters. |
-| `configure_process` | `bootstrap.process` | Shared process boot utility to initialize environment, telemetry, and adapters for embedded runs. |
-
-## Quick Start: Basic Headless Dispatch
-
-To execute a single turn programmatically using default in-memory adapters and a custom reasoning client:
-
-```python
-from core.agent_harness.harness import AgentSession, SessionConfig
-from core.agent_harness.turns.headless_dispatch import (
-    HeadlessAgent,
-    NullToolProvider,
-    StaticReasoningClientProvider,
-)
-
-class CustomReasoningClient:
-    def invoke_stream(self, prompt: str):
-        yield "OpenSRE investigation complete: All systems normal."
-
-# 1. Initialize AgentSession and startup to get SessionCore state
-agent_session = AgentSession(SessionConfig(load_env=False))
-startup = agent_session.startup()
-
-# 2. Attach a headless agent dispatcher with custom reasoning provider
-agent_session.attach_agent(
-    HeadlessAgent(
-        tools=NullToolProvider(),
-        session=startup.session,
-        reasoning=StaticReasoningClientProvider(client=CustomReasoningClient()),
-    )
-)
-
-# 3. Dispatch a chat turn programmatically
-result = agent_session.chat("Check system health status")
-print(result.primary_response_text)
-# → "OpenSRE investigation complete: All systems normal."
+```bash
+git clone https://github.com/Tracer-Cloud/opensre.git
+cd opensre && make install
 ```
 
-## Session Lifecycle and Process Boot
+Configure a provider once (`opensre onboard`) — the session API reuses the same
+config and credentials as the CLI. Run your script inside the checkout's
+environment with `uv run python your_script.py`.
 
-For embedded applications or production integrations, use `AgentSession.start()` to initialize environment, integrations, and session state in one step:
+Register adapters before the first turn (tools and investigation):
 
 ```python
 from bootstrap.process import EMBEDDED_PROFILE, configure_process
-from core.agent_harness.harness import AgentSession, SessionConfig
 
-class CustomReasoningClient:
-    def invoke_stream(self, prompt: str):
-        yield "OpenSRE investigation result: payment-gateway latency is 45ms."
-
-# 1. Boot process environment with EMBEDDED_PROFILE
 configure_process(EMBEDDED_PROFILE)
-
-# 2. Start an AgentSession (automatically boots session and attaches default agent)
-session = AgentSession.start(
-    SessionConfig(
-        load_env=True,
-        hydrate_integrations=True,
-        warm_integrations=False,
-    )
-)
-
-# 3. Programmatically run chat turns across the session
-turn_result = session.chat("Investigate latency spike on payment-gateway service")
-
-if turn_result.answered:
-    print(f"Agent Output: {turn_result.primary_response_text}")
 ```
 
-## Running Multi-Turn Goal Loops (`chat_until_goal`)
+## One API — chat and investigate
 
-`AgentSession.chat_until_goal` executes `session.chat()` repeatedly in a loop until an outer `SessionGoal` completes or reaches its turn ceiling:
+Every surface uses the same two verbs:
 
 ```python
 from bootstrap.process import EMBEDDED_PROFILE, configure_process
-from core.agent_harness.harness import AgentSession, SessionConfig
+from core.agent_harness import AgentSession
 
-# 1. Boot process and start session
 configure_process(EMBEDDED_PROFILE)
-session = AgentSession.start(SessionConfig(load_env=True))
 
-# 2. Run chat_until_goal to execute until multi-step goal completion
-goal_result = session.chat_until_goal("Audit all active production alert rules")
-
-print("Goal status:", goal_result.status)
-print("Turns executed:", len(goal_result.history))
-```
-
-## Result Inspection
-
-`session.chat()` returns a `TurnResult` dataclass containing detailed metadata about the executed turn:
-
-```python
-result = session.chat("Analyze error rates in auth-service")
-
-# Inspect turn outcome
+session = AgentSession.start()
+result = session.chat("why is checkout-api slow?")
 if result.answered:
-    print("Turn answered successfully.")
-    print("Response:", result.primary_response_text)
-elif result.cancelled:
-    print("Turn execution was cancelled.")
+    print(result.primary_response_text)
 
-# Access action-phase execution metadata
-action_res = result.action_result
-print(f"Actions planned: {action_res.planned_count}, executed: {action_res.executed_count}")
+report = session.investigate({"alert_name": "HighLatency", "severity": "warning"})
+print(report.report)
 ```
+
+Or the one-liner that wires the same boot step for you:
+
+```python
+from bootstrap.embedded import start_embedded_session
+
+session = start_embedded_session()
+```
+
+`AgentSession.start()` resolves the environment, opens a session, and attaches
+an agent with the standard ports — the same tools and prompts the interactive
+shell uses. It does **not** register adapters (``core`` may not import
+``bootstrap``); call ``configure_process`` first or use
+``start_embedded_session``. `investigate` does not require an attached chat
+agent; it uses the payload runner installed by `configure_process`.
+
+Always check `result.answered` before trusting chat text: when a turn fails (for
+example the LLM provider is unreachable), the error message itself lands in
+`result.primary_response_text`.
+
+### Internal seams (not for hosts)
+
+Chat hosts terminate at `dispatch_chat_turn` → `run_turn`. Investigation
+terminates at the installed payload runner (`run_investigation_payload`). Do not
+invent parallel public entrypoints.
+
+## A conversation
+
+Each `chat` call is one turn in the same session, so follow-ups see earlier
+context:
+
+```python
+session.chat("list unresolved Sentry issues from the last 24 hours")
+result = session.chat("which of those affect checkout?")
+```
+
+To resume an existing session, pass its ID:
+
+```python
+from core.agent_harness import AgentSession, SessionConfig
+
+session = AgentSession.start(SessionConfig(session_id="abc123"))
+```
+
+## Run until a goal is complete
+
+Use `chat_until_goal` when one request may need several agent turns. Pass an
+explicit `SessionGoal` so the completion condition, checklist, and turn limit
+do not depend on the first turn inferring them:
+
+```python
+from bootstrap.process import EMBEDDED_PROFILE, configure_process
+from core.agent_harness import AgentSession
+from core.agent_harness.session_goal import SessionGoal
+
+configure_process(EMBEDDED_PROFILE)
+session = AgentSession.start()
+
+outcome = session.chat_until_goal(
+    "Audit active production alert rules and summarize risky thresholds.",
+    goal=SessionGoal(
+        condition="Every active production alert rule has been checked.",
+        checklist=(
+            "List active production alert rules",
+            "Check each threshold and evaluation window",
+            "Summarize risky thresholds",
+        ),
+        max_outer_turns=5,
+    ),
+)
+
+print(outcome.goal.status)
+print(outcome.turn_count)
+if outcome.last_result.answered:
+    print(outcome.last_result.primary_response_text)
+```
+
+The loop stops when the goal is achieved, cancelled, cleared, or its turn
+budget is exhausted. The result contains the final `goal`, the `last_result`
+from `chat`, and `turn_count`. Without `goal=`, the first action turn must
+attach a goal; otherwise `chat_until_goal` returns after that one turn. Use
+`cancel_requested` to stop between turns and `on_progress` to receive checklist
+updates.
+
+## Custom grounding context
+
+By default, the agent builds prompts from the session. To supply a custom system
+prompt or retrieved context, pass a provider:
+
+```python
+from core.agent_harness import AgentSession, SessionConfig
+
+session = AgentSession.start(SessionConfig(prompts=my_provider))
+```
+
+If omitted, `core.agent_harness.spi.defaults.DefaultPromptContextProvider` is
+used. A custom provider must implement
+`core.agent_harness.ports.PromptContextProvider`. The same `prompts=` argument
+is accepted by `DefaultPorts.agent()` on the custom-ports path below.
+
+## Custom output and ports
+
+`start()` buffers all output. To capture tool progress yourself (for example to
+stream to a websocket), build the agent and pass your own sink:
+
+```python
+from core.agent_harness import AgentSession, SessionConfig
+from core.agent_harness.runtime import DefaultPorts
+from core.agent_harness.turns.headless_adapters import BufferOutputSink
+
+session = AgentSession(SessionConfig())
+startup = session.startup()
+sink = BufferOutputSink()
+agent = DefaultPorts(session=startup.session, output=sink).agent(
+    prompts=my_provider,  # optional — same port as SessionConfig.prompts
+)
+session.attach_agent(agent)
+
+session.chat("summarize open incidents")
+print(sink.lines)      # rendered output lines
+print(sink.streamed)   # streamed answer chunks
+```
+
+Any object implementing the `OutputSink` protocol
+(`core.agent_harness.ports.OutputSink`: `print`, `render_response_header`,
+`render_error`, `stream`) may replace `BufferOutputSink`.
+`DefaultPorts` also takes a custom logger, console, and prompt surface; its
+`agent()` takes your own tool provider (`tools=`, usually a configured
+`DefaultToolProvider`) and gather ports — see its docstring.
+
+## External tools
+
+Register a package before the first tool lookup:
+
+```python
+from tools.registry import register_external_tool_package
+import my_agent_tools
+
+register_external_tool_package(my_agent_tools)
+```
+
+Requirements:
+
+1. Declare tools with `surfaces=("action",)` (or include `"action"`). The
+   `@tool` default is `("investigation",)` only; the chat and Python API action
+   loop does not load investigation-only tools.
+2. Tools may be defined in the package `__init__.py` or in submodules; both are
+   discovered after registration.
