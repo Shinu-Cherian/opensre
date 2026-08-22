@@ -7,7 +7,7 @@ from enum import StrEnum
 from typing import Final
 
 from infrastructure.analytics.provider import Properties
-from infrastructure.analytics.runtime_context import is_ci_environment
+from infrastructure.analytics.analytics_runtime import is_ci_environment
 
 INVESTIGATION_EVENT_SCHEMA_VERSION: Final[int] = 1
 
