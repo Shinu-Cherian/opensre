@@ -32,9 +32,12 @@ def _is_untyped_callable_any(node: ast.AST) -> bool:
         return False
 
     value = node.value
-    if isinstance(value, ast.Name) and value.id == "Callable":
-        pass
-    elif isinstance(value, ast.Attribute) and value.attr == "Callable":
+    if (
+        isinstance(value, ast.Name)
+        and value.id == "Callable"
+        or isinstance(value, ast.Attribute)
+        and value.attr == "Callable"
+    ):
         pass
     else:
         return False
