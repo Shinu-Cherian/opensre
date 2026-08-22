@@ -9,11 +9,10 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any, cast
 
 from infrastructure.safety.masking.policy import ALL_KINDS, MaskingPolicy
 from infrastructure.safety.masking.rules import MaskingRules
-
-from typing import Any, cast
 
 FIXTURE = (
     Path(__file__).parent.parent / "e2e" / "kubernetes" / "fixtures" / "datadog_k8s_alert.json"
@@ -25,9 +24,7 @@ def _load_fixture() -> dict[str, Any]:
 
 
 def _enabled_ctx() -> MaskingRules:
-    return MaskingRules(
-        policy=MaskingPolicy.model_validate({"enabled": True, "kinds": ALL_KINDS})
-    )
+    return MaskingRules(policy=MaskingPolicy.model_validate({"enabled": True, "kinds": ALL_KINDS}))
 
 
 def test_fixture_file_exists() -> None:
