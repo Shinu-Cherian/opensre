@@ -163,3 +163,16 @@ def test_bindable_output_stream_stops_when_turn_cancel_set() -> None:
     text = bindable.stream(label="assistant", chunks=_chunks())
     assert text == "a"
     assert inner.seen == ["a"]
+
+
+def test_cancel_tool_resources_builds_cancel_check_state() -> None:
+    from core.agent_harness.tools.tool_context import ACTION_TOOL_CONTEXT_RESOURCE_KEY
+    from core.agent_harness.turns.host_cancel import CancelCheckState, cancel_tool_resources
+
+    assert cancel_tool_resources(None) == {}
+
+    resources = cancel_tool_resources(lambda: True)
+    assert ACTION_TOOL_CONTEXT_RESOURCE_KEY in resources
+    state = resources[ACTION_TOOL_CONTEXT_RESOURCE_KEY]
+    assert isinstance(state, CancelCheckState)
+    assert state.console.cancel_requested is True

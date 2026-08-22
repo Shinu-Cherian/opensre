@@ -69,7 +69,7 @@ class CancelProbeConsole:
 
 
 @dataclass(frozen=True, slots=True)
-class CancelProbeContext:
+class CancelCheckState:
     """Stand-in ``ActionToolContext`` carrying only the cancel console."""
 
     console: CancelProbeConsole
@@ -80,15 +80,15 @@ def cancel_tool_resources(is_cancelled: Callable[[], bool] | None) -> dict[str, 
     if is_cancelled is None:
         return {}
     return {
-        ACTION_TOOL_CONTEXT_RESOURCE_KEY: CancelProbeContext(
+        ACTION_TOOL_CONTEXT_RESOURCE_KEY: CancelCheckState(
             console=CancelProbeConsole(is_cancelled=is_cancelled)
         )
     }
 
 
 __all__ = [
+    "CancelCheckState",
     "CancelProbeConsole",
-    "CancelProbeContext",
     "cancel_tool_resources",
     "ensure_turn_cancel",
     "host_cancel_requested",
