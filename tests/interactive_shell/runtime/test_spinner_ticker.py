@@ -10,7 +10,7 @@ from surfaces.interactive_shell.runtime.core.state import ReplState, SpinnerStat
 from surfaces.interactive_shell.session import Session
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_spinner_ticker_invalidates_once_after_streaming_stops(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
