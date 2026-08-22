@@ -15,7 +15,7 @@ from core.agent_harness.ports import (
     TaskCancelPortsFactory,
     ToolEventObserver,
 )
-from core.agent_harness.tools.action_tools import get_action_tools_from_integrations_context
+from core.agent_harness.tools.action_tools import get_action_tools_from_integrations_view
 from core.agent_harness.tools.tool_context import (
     ACTION_TOOL_CONTEXT_RESOURCE_KEY,
     ActionToolContext,
@@ -134,7 +134,7 @@ class DefaultToolProvider:
             if resolved_integrations is not None
             else self._resolved_integrations()
         )
-        return get_action_tools_from_integrations_context(ctx, resolved_integrations=resolved)
+        return get_action_tools_from_integrations_view(ctx, resolved_integrations=resolved)
 
     def tool_resources(self) -> dict[str, Any]:
         if self._tool_context is None:

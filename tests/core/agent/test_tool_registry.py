@@ -8,7 +8,7 @@ from rich.console import Console
 
 from core.agent_harness.tools.action_tools import (
     get_action_tool,
-    get_action_tools_from_integrations_context,
+    get_action_tools_from_integrations_view,
 )
 from core.agent_harness.tools.tool_context import (
     ActionToolContext,
@@ -25,9 +25,7 @@ def _action_tools(
     resolved_integrations: dict[str, dict[str, str]] | None = None,
 ) -> list[object]:
     ctx = ActionToolContext(session=session, console=Console(force_terminal=False))
-    return get_action_tools_from_integrations_context(
-        ctx, resolved_integrations=resolved_integrations
-    )
+    return get_action_tools_from_integrations_view(ctx, resolved_integrations=resolved_integrations)
 
 
 def _tool_specs(
@@ -221,7 +219,7 @@ def test_llm_set_provider_offered_by_default() -> None:
 def test_registry_agent_tools_exclude_unavailable_tool() -> None:
     session = Session(available_capabilities={"slash_commands": ()})
     ctx = ActionToolContext(session=session, console=Console(force_terminal=False))
-    names = {tool.name for tool in get_action_tools_from_integrations_context(ctx)}
+    names = {tool.name for tool in get_action_tools_from_integrations_view(ctx)}
     assert "slash_invoke" not in names
 
 

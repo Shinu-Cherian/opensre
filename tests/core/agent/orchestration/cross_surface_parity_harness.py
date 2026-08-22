@@ -267,7 +267,7 @@ def wire_tool_registry(monkeypatch: Any, tools: list[RegisteredTool]) -> None:
 
     set_tool_registry(_FixedToolRegistry())
 
-    from core.agent_harness.tools.action_tools import _sources_for_context
+    from core.agent_harness.tools.action_tools import _sources_for_view
 
     def _resolve_from_integrations(
         ctx: Any,
@@ -275,15 +275,15 @@ def wire_tool_registry(monkeypatch: Any, tools: list[RegisteredTool]) -> None:
         resolved_integrations: dict[str, Any] | None = None,
     ) -> list[RegisteredTool]:
         _INTEGRATIONS_SEEN.append(dict(resolved_integrations or {}))
-        sources = _sources_for_context(ctx, resolved_integrations)
+        sources = _sources_for_view(ctx, resolved_integrations)
         return [tool for tool in tools if tool.is_available(sources)]
 
     monkeypatch.setattr(
-        "core.agent_harness.tools.tool_provider.get_action_tools_from_integrations_context",
+        "core.agent_harness.tools.tool_provider.get_action_tools_from_integrations_view",
         _resolve_from_integrations,
     )
     monkeypatch.setattr(
-        "core.agent_harness.tools.action_tools.get_action_tools_from_integrations_context",
+        "core.agent_harness.tools.action_tools.get_action_tools_from_integrations_view",
         _resolve_from_integrations,
     )
 
