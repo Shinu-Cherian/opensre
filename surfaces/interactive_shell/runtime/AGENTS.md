@@ -61,7 +61,7 @@ owner module instead of broadening module responsibilities.
   accounting and run metadata only.
 - Reusable per-agent session state (`Session`) lives in
   `core.agent_harness.session`. Terminal runtime context assembly
-  (`ReplRuntimeContext`, `create_repl_runtime_context`) lives in
+  (`ReplRuntime`, `create_repl_runtime`) lives in
   `interactive_shell.runtime.context`.
 
 ## Data flow contract (locked)

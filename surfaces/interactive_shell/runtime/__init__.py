@@ -8,8 +8,10 @@ from __future__ import annotations
 from infrastructure.scheduling.task_registry import TaskRegistry
 from infrastructure.scheduling.task_types import TaskKind, TaskRecord, TaskStatus
 from surfaces.interactive_shell.runtime.context import (
+    ReplRuntime,
     ReplRuntimeContext,
     SessionBootstrapSpec,
+    create_repl_runtime,
     create_repl_runtime_context,
     prepare_repl_session,
 )
@@ -22,6 +24,7 @@ from surfaces.interactive_shell.session.session import Session
 __all__ = [
     "BackgroundInvestigationRecord",
     "BackgroundNotificationPreferences",
+    "ReplRuntime",
     "ReplRuntimeContext",
     "Session",
     "SessionBootstrapSpec",
@@ -29,6 +32,7 @@ __all__ = [
     "TaskRecord",
     "TaskRegistry",
     "TaskStatus",
+    "create_repl_runtime",
     "create_repl_runtime_context",
     "prepare_repl_session",
 ]
