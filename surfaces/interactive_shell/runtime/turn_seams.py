@@ -15,7 +15,7 @@ from typing import Any, Protocol
 from rich.console import Console
 
 from core.agent_harness import OutputSink, ToolCallingTurnResult
-from core.agent_harness.ports import AnswerRequest, GatheredEvidence
+from core.agent_harness.contracts import AnswerRequest, GatheredEvidence
 from core.agent_harness.runtime import HeadlessAgent, TurnPlan
 from core.tool import ToolExecutionHooks
 from surfaces.interactive_shell.session import Session

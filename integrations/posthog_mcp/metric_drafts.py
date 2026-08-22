@@ -15,7 +15,7 @@ import json
 from collections.abc import Iterator
 from typing import Any
 
-from core.agent_harness.ports import GatheredEvidence
+from core.agent_harness.contracts import GatheredEvidence
 from core.agent_harness.spi.prompt_chrome import reply_reports_cohort_unverified
 from core.agent_harness.tools import coerce_gathered_evidence
 from infrastructure.harness_providers import (

@@ -1,6 +1,6 @@
 """In-memory port adapters for headless agent runs.
 
-These adapters implement core.agent_harness.ports interfaces without
+These adapters implement core.agent_harness.contracts interfaces without
 external side effects (no IO, no network, no filesystem).
 """
 
@@ -10,7 +10,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-from core.agent_harness.ports import (
+from core.agent_harness.contracts import (
     ConfirmFn,
     ToolEventObserver,
 )
@@ -28,7 +28,7 @@ from core.llm.types import StreamingReasoningClient
 
 @dataclass
 class InMemorySessionState:
-    """List-backed :class:`core.agent_harness.ports.SessionState` for headless runs."""
+    """List-backed :class:`core.agent_harness.contracts.SessionState` for headless runs."""
 
     session_id: str = "headless"
     cli_agent_messages: list[tuple[str, str]] = field(default_factory=list)

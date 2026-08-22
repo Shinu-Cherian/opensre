@@ -24,7 +24,7 @@ _SOURCE_TIERS = ("core", "gateway", "surfaces", "tools", "infrastructure", "inte
 _GATE_HOME = "tools/interactive_shell/shared/host_ports.py"
 
 #: The one module allowed to declare the factory aliases (the harness API).
-_ALIAS_HOME = "core/agent_harness/ports.py"
+_ALIAS_HOME = "core/agent_harness/contracts.py"
 
 #: Host-capability protocols that must take the gate by inheritance, not copy.
 _CAPABILITY_PROTOCOLS = {
@@ -78,7 +78,7 @@ def _protocols_declaring_the_gate() -> set[str]:
                 and _is_protocol_class(node)
                 and _declares_the_wide_gate(node)
             ):
-                found.add(f"{path.relative_to(REPO_ROOT)}::{node.name}")
+                found.add(f"{path.relative_to(REPO_ROOT).as_posix()}::{node.name}")
     return found
 
 
@@ -148,7 +148,7 @@ def test_no_tier_redeclares_a_host_port_factory_alias() -> None:
     # Act
     offenders: dict[str, list[str]] = {}
     for path in _python_sources():
-        relative = str(path.relative_to(REPO_ROOT))
+        relative = path.relative_to(REPO_ROOT).as_posix()
         if relative == _ALIAS_HOME:
             continue
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))

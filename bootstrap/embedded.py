@@ -22,7 +22,7 @@ from collections.abc import Callable
 
 from bootstrap.process import EMBEDDED_PROFILE, configure_process
 from core.agent_harness import AgentSession, OutputSink, SessionConfig, SessionCore
-from core.agent_harness.ports import PromptContextProvider
+from core.agent_harness.contracts import PromptContextProvider
 
 
 def embedded_boot_step() -> None:

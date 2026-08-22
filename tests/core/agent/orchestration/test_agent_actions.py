@@ -21,7 +21,7 @@ import surfaces.interactive_shell.runtime.subprocess_runner as subprocess_runner
 import tests.shared.harness_turn_driver as harness_turn_driver
 import tools.interactive_shell.shell.execution as shell_execution
 from core.agent_harness.accounting.token_accounting import LlmRunInfo
-from core.agent_harness.ports import AnswerRequest, OutputSink
+from core.agent_harness.contracts import AnswerRequest, OutputSink
 from core.llm.types import AgentLLMResponse, ToolCall
 from infrastructure.scheduling.task_types import TaskKind, TaskStatus
 from surfaces.interactive_shell.session import Session

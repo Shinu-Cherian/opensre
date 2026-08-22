@@ -18,7 +18,7 @@ from typing import Any
 from rich.console import Console
 
 from core.agent_harness import OutputSink, TurnResult
-from core.agent_harness.ports import (
+from core.agent_harness.contracts import (
     AnswerRequest,
     GatheredEvidence,
     StreamAnswerFn,

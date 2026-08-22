@@ -259,7 +259,7 @@ session = AgentSession.start(SessionConfig(prompts=my_provider))
 
 If omitted, `core.agent_harness.spi.defaults.DefaultPromptContextProvider` is
 used. A custom provider must implement
-`core.agent_harness.ports.PromptContextProvider`. The same `prompts=` argument
+`core.agent_harness.contracts.PromptContextProvider`. The same `prompts=` argument
 is accepted by `DefaultHeadlessBuild.agent()` on the custom-ports path below.
 
 ## Custom output and ports
@@ -286,7 +286,7 @@ print(sink.streamed)   # streamed answer chunks
 ```
 
 Any object implementing the `OutputSink` protocol
-(`core.agent_harness.ports.OutputSink`: `print`, `render_response_header`,
+(`core.agent_harness.contracts.OutputSink`: `print`, `render_response_header`,
 `render_error`, `stream`) may replace `BufferOutputSink`.
 `DefaultHeadlessBuild` also takes a custom logger, console, and prompt surface; its
 `agent()` takes your own tool provider (`tools=`, usually a configured

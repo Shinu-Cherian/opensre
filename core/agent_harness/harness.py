@@ -33,8 +33,8 @@ from typing import TYPE_CHECKING, Any, Protocol
 from core.agent_harness.session import SessionManager
 
 if TYPE_CHECKING:
+    from core.agent_harness.contracts import OutputSink, PromptContextProvider, ToolProvider
     from core.agent_harness.investigation_api import AlertInput, InvestigationResult
-    from core.agent_harness.ports import OutputSink, PromptContextProvider, ToolProvider
     from core.agent_harness.session.session_core import SessionCore
     from core.agent_harness.session_goal.goal import SessionGoal
     from core.agent_harness.session_goal.run_until import SessionGoalRunResult
@@ -336,7 +336,7 @@ class AgentSession:
         (gateway pool, REPL) build through :class:`DefaultHeadlessBuild` themselves and
         call :meth:`attach_agent` — they must not re-copy this wiring ad hoc.
         """
-        from core.agent_harness.ports import TurnBinding
+        from core.agent_harness.contracts import TurnBinding
         from core.agent_harness.turns.headless_build import DefaultHeadlessBuild
 
         agent = DefaultHeadlessBuild(

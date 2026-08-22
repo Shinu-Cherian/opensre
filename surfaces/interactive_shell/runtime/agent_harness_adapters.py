@@ -1,4 +1,4 @@
-"""Interactive-shell adapters for :mod:`core.agent_harness.ports`: the console sink and error reporter.
+"""Interactive-shell adapters for :mod:`core.agent_harness.contracts`: the console sink and error reporter.
 
 Shared action-tool, reasoning-client and run-record providers live in
 :mod:`core.agent_harness`.
@@ -28,7 +28,7 @@ from surfaces.shared.error_handling.exception_reporting import report_exception
 
 
 class ShellOutputSink:
-    """:class:`core.agent_harness.ports.OutputSink` over a Rich console.
+    """:class:`core.agent_harness.contracts.OutputSink` over a Rich console.
 
     The console may be rebound per turn (spinner-aware streaming console) so a
     long-lived :class:`~core.agent_harness.turns.action_driver.ActionTurnRunner`
@@ -150,7 +150,7 @@ def resolve_output_sink(console: Console, output: OutputSink | None) -> OutputSi
 
 
 class ShellErrorReporter:
-    """:class:`~core.agent_harness.ports.ErrorReporter` for the REPL: debug log plus Sentry.
+    """:class:`~core.agent_harness.contracts.ErrorReporter` for the REPL: debug log plus Sentry.
 
     Swallowed boundary exceptions (gather, answer, tool errors) are logged like
     the default reporter and forwarded to :func:`report_exception`, which

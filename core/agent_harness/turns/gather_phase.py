@@ -10,7 +10,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from core.agent_harness.ports import ToolEventObserver
+from core.agent_harness.contracts import ToolEventObserver
 from core.llm.types import ToolCall
 
 #: Persists the tool calls a gather pass made: ``[(tool_call, result), ...]``.

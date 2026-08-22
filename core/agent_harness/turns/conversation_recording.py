@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from core.agent_harness.ports import SessionState
+from core.agent_harness.contracts import SessionState
 from core.state import MAX_CONVERSATION_MESSAGES
 from core.state.transcript_window import compact_messages_to_window
 

@@ -15,7 +15,7 @@ from core.agent_harness.accounting.token_accounting import (
     format_token_total,
     record_llm_turn,
 )
-from core.agent_harness.ports import AnswerRequest
+from core.agent_harness.contracts import AnswerRequest
 from surfaces.interactive_shell.session import Session
 from surfaces.interactive_shell.ui.streaming import _CHARS_PER_TOKEN
 from tests.interactive_shell.shell_answer_gather import stream_shell_answer

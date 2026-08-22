@@ -16,7 +16,7 @@ from contextlib import contextmanager
 from rich.console import Console
 
 from core.agent_harness import SessionCore
-from core.agent_harness.ports import SlashPortsFactory
+from core.agent_harness.contracts import SlashPortsFactory
 from core.agent_harness.runtime import (
     AgentBuildConfig,
     DefaultHeadlessBuild,

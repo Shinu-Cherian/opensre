@@ -1,13 +1,13 @@
 """Action tool-calling turn driver (decoupled from any terminal surface).
 
 Runs one turn through the shared :class:`core.agent.Agent` tool-calling
-loop: it assembles the available agent tools (via a :class:`~core.agent_harness.ports.ToolProvider`),
+loop: it assembles the available agent tools (via a :class:`~core.agent_harness.contracts.ToolProvider`),
 drives the loop while a tool-event observer streams each tool call to the
 surface, and summarizes the executed tool calls into a facts-only
 :class:`~core.agent_harness.turns.turn_results.ToolCallingTurnResult`.
 
 Accounting/analytics for the turn are the caller's concern (see
-:class:`core.agent_harness.ports.TurnAccounting`); this module emits none itself.
+:class:`core.agent_harness.contracts.TurnAccounting`); this module emits none itself.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from core.agent.cancel import tool_resources_cancel_requested
 from core.agent.goals import Goal
 from core.agent_harness.accounting.self_recording_tools import SELF_RECORDING_ACTION_TOOL_NAMES
 from core.agent_harness.agent_builder import AgentConfig, build_agent
-from core.agent_harness.ports import (
+from core.agent_harness.contracts import (
     ConfirmFn,
     ErrorReporter,
     LlmFactory,

@@ -219,7 +219,7 @@ def contribute_cli_reference(
             f"--- CLI reference ---\n{parts.reference}\n\n",
             kind=PromptBlockKind.CONTEXT,
             tier=PromptTier.STABLE,
-            provenance="core.agent_harness.ports.PromptContextProvider.cli_reference",
+            provenance="core.agent_harness.contracts.PromptContextProvider.cli_reference",
         )
     ]
 

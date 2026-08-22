@@ -5,7 +5,7 @@ from __future__ import annotations
 import threading
 from typing import Any
 
-from core.agent_harness.ports import ConsoleBindable, OutputBindable, SessionBindable
+from core.agent_harness.contracts import ConsoleBindable, OutputBindable, SessionBindable
 from core.agent_harness.runtime import TurnBinding
 from core.agent_harness.tools.tool_provider import DefaultToolProvider
 from core.agent_harness.turns.default_reasoning_client import DefaultReasoningClientProvider

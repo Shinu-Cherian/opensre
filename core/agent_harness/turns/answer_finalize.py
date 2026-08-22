@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from core.agent_harness.ports import OutputSink, SessionState
+from core.agent_harness.contracts import OutputSink, SessionState
 from core.agent_harness.session.pending_offer import (
     PendingIntegrationSetupOffer,
     arm_pending_integration_setup_offer,

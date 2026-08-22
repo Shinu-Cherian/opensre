@@ -1,4 +1,4 @@
-"""Ports (structural Protocols) the agentic turn engine talks to.
+"""Contracts (structural Protocols) the agentic turn engine talks to.
 
 These are the seams that keep ``agent/`` decoupled from any concrete surface.
 The interactive shell implements them as adapters over its ``Session``,

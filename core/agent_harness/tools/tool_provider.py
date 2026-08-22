@@ -6,7 +6,7 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
-from core.agent_harness.ports import (
+from core.agent_harness.contracts import (
     ConfirmFn,
     InvestigationPortsFactory,
     LlmProviderPortsFactory,
@@ -36,7 +36,7 @@ def _tool_input_preview(value: Any) -> str:
 
 
 class DefaultToolProvider:
-    """:class:`core.agent_harness.ports.ToolProvider` backed by action tools."""
+    """:class:`core.agent_harness.contracts.ToolProvider` backed by action tools."""
 
     def __init__(
         self,

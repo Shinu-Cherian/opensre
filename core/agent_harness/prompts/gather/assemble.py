@@ -18,7 +18,7 @@ from core.agent_harness.prompts.memory.prior_investigation import (
 from infrastructure.harness_providers import gather_prompt_vendor_fragments
 
 if TYPE_CHECKING:
-    from core.agent_harness.ports import SessionState
+    from core.agent_harness.contracts import SessionState
     from core.agent_harness.turns.turn_snapshot import TurnSnapshot
 
 _PRIOR_INVESTIGATION_GATHER_RULE = (
@@ -114,7 +114,7 @@ def build_gather_system_prompt_envelope(session: SessionState) -> PromptEnvelope
             kind=PromptBlockKind.CONTEXT,
             tier=PromptTier.CONTEXT,
             content=f"Configured integrations in this session: {configured}.",
-            provenance="core.agent_harness.ports.SessionState",
+            provenance="core.agent_harness.contracts.SessionState",
         )
     )
     last_state = getattr(session, "last_state", None)

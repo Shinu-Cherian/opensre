@@ -11,7 +11,7 @@ interactive shell. It owns:
   answer path.
 
 All terminal/session/grounding/telemetry concerns are reached through the
-Protocols in :mod:`core.agent_harness.ports`. Nothing here imports ``interactive_shell``.
+Protocols in :mod:`core.agent_harness.contracts`. Nothing here imports ``interactive_shell``.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from dataclasses import dataclass, replace
 from typing import Any
 
 from config.llm_reasoning_effort import apply_reasoning_effort
-from core.agent_harness.ports import (
+from core.agent_harness.contracts import (
     AnswerRequest,
     ConfirmFn,
     ErrorReporter,

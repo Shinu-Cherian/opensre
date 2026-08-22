@@ -23,7 +23,7 @@ from typing import Any
 
 from rich.console import Console
 
-from core.agent_harness.ports import SlashPortsFactory
+from core.agent_harness.contracts import SlashPortsFactory
 from gateway import startup as gateway_startup
 from gateway.core.chat_agent_build import chat_agent_build_config
 from gateway.core.config.logging_config import configure_logging

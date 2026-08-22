@@ -36,7 +36,7 @@ SPI_ROLES: frozenset[str] = frozenset(
 API_MODULES: frozenset[str] = frozenset(
     {
         HARNESS_PACKAGE,
-        f"{HARNESS_PACKAGE}.ports",
+        f"{HARNESS_PACKAGE}.contracts",
         f"{HARNESS_PACKAGE}.runtime",
         f"{HARNESS_PACKAGE}.tools",
     }

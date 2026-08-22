@@ -6,7 +6,7 @@ from typing import Any, cast
 
 from rich.markup import escape
 
-from core.agent_harness.ports import (
+from core.agent_harness.contracts import (
     ErrorReporter,
     OutputSink,
 )
@@ -26,7 +26,7 @@ def _llm_client_unavailable_message(exc: Exception) -> str:
 
 
 class DefaultReasoningClientProvider:
-    """:class:`core.agent_harness.ports.ReasoningClientProvider` for assistant answers."""
+    """:class:`core.agent_harness.contracts.ReasoningClientProvider` for assistant answers."""
 
     def __init__(
         self,

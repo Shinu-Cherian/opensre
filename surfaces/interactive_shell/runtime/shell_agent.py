@@ -16,7 +16,7 @@ from typing import Any, cast
 from rich.console import Console
 
 from core.agent_harness import OutputSink
-from core.agent_harness.ports import SessionState, ToolEventObserver
+from core.agent_harness.contracts import SessionState, ToolEventObserver
 from core.agent_harness.runtime import (
     AgentBuildConfig,
     DefaultHeadlessBuild,

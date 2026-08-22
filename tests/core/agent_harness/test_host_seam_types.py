@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import typing
 
-from core.agent_harness.ports import (
+from core.agent_harness.contracts import (
     InvestigationPortsFactory,
     LlmFactory,
     LlmProviderPortsFactory,

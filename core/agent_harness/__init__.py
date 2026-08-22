@@ -2,7 +2,7 @@
 
 The entry point (:class:`AgentSession`), its config, the session object and
 manager, the turn result types, and the sink Protocol a host implements. Hosts also use
-:mod:`core.agent_harness.ports` (what a host implements),
+:mod:`core.agent_harness.contracts` (what a host implements),
 :mod:`core.agent_harness.spi` (what a host calls around a turn, by role),
 :mod:`core.agent_harness.runtime` (build and run the agent) and
 :mod:`core.agent_harness.tools` (what an action tool implements and calls).
@@ -14,8 +14,8 @@ Nothing under ``agent_harness/`` may import from ``interactive_shell``,
 
 from __future__ import annotations
 
+from core.agent_harness.contracts import OutputSink
 from core.agent_harness.harness import AgentSession, SessionConfig
-from core.agent_harness.ports import OutputSink
 from core.agent_harness.session import SessionCore, SessionManager
 from core.agent_harness.turns.turn_results import ToolCallingTurnResult, TurnResult
 

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from core.agent_harness.ports import (
+from core.agent_harness.contracts import (
     ConfirmFn,
     EvidenceGatherer,
     ExecuteActions,

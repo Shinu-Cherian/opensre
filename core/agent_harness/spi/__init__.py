@@ -13,7 +13,7 @@ Import the role you need, not this package:
 * :mod:`.grounding` — grounding-cache observability and the action-skill catalog.
 * :mod:`.defaults` — the default adapters a host extends or reuses.
 
-What a host *implements* is :mod:`core.agent_harness.ports`; what it *embeds*
+What a host *implements* is :mod:`core.agent_harness.contracts`; what it *embeds*
 is :mod:`core.agent_harness`; what builds and runs the agent is
 :mod:`core.agent_harness.runtime`. Import-cheap: nothing here loads the agent loop.
 """

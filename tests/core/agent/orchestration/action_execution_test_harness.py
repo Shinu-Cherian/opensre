@@ -8,7 +8,7 @@ from typing import Any
 
 from rich.console import Console
 
-from core.agent_harness.ports import LlmFactory
+from core.agent_harness.contracts import LlmFactory
 from core.llm.types import AgentLLMResponse, ToolCall
 
 

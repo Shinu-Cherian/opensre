@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from core.agent_harness.accounting.turn_accounting import DefaultTurnAccounting
-from core.agent_harness.ports import AnswerRequest
+from core.agent_harness.contracts import AnswerRequest
 from core.agent_harness.session.pending_offer import (
     PendingIntegrationSetupOffer,
     first_pending_offer,

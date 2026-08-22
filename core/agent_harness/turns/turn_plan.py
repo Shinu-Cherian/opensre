@@ -18,7 +18,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from typing import Any
 
-from core.agent_harness.ports import SessionState
+from core.agent_harness.contracts import SessionState
 from core.agent_harness.session.integration_resolution import (
     has_resolved_integrations,
     resolve_and_cache_integrations,

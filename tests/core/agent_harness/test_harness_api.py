@@ -1,7 +1,7 @@
 """The exported names of each harness API module are pinned exactly.
 
 * ``core.agent_harness`` — embedder API: entry point, config, session, results, sink.
-* ``core.agent_harness.ports`` — what a host implements: the port protocols.
+* ``core.agent_harness.contracts`` — what a host implements: the port protocols.
 * ``core.agent_harness.spi.<role>`` — what a host calls around a turn, by role;
   the package itself exports nothing. Import-cheap.
 * ``core.agent_harness.runtime`` — build and run the agent; loads ``core.agent``.
@@ -17,7 +17,7 @@ import subprocess
 import sys
 
 import core.agent_harness as root
-import core.agent_harness.ports as ports
+import core.agent_harness.contracts as ports
 import core.agent_harness.runtime as runtime
 import core.agent_harness.spi as spi_pkg
 import core.agent_harness.tools as tools
@@ -259,7 +259,7 @@ def test_border_tests_and_this_pin_share_one_api_module_list() -> None:
     assert frozenset(SPI_ROLE_NAMES) == SPI_ROLES
     assert {
         "core.agent_harness",
-        "core.agent_harness.ports",
+        "core.agent_harness.contracts",
         "core.agent_harness.runtime",
         "core.agent_harness.tools",
         *(f"core.agent_harness.spi.{r}" for r in SPI_ROLE_NAMES),
@@ -274,7 +274,7 @@ def test_the_root_has_no_lazy_attribute_machinery() -> None:
 def test_root_ports_and_spi_do_not_load_the_agent_loop() -> None:
     roles = ", ".join(f"core.agent_harness.spi.{r}" for r in SPI_ROLE_NAMES)
     code = (
-        f"import sys, core.agent_harness, core.agent_harness.ports, core.agent_harness.tools, {roles}; "
+        f"import sys, core.agent_harness, core.agent_harness.contracts, core.agent_harness.tools, {roles}; "
         "print('core.agent.agent' in sys.modules, "
         "'core.agent_harness.turns.action_driver' in sys.modules)"
     )

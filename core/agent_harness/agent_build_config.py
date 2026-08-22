@@ -10,7 +10,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from core.agent_harness.ports import (
+from core.agent_harness.contracts import (
     ErrorReporter,
     PromptContextProvider,
     SessionState,

@@ -37,7 +37,7 @@ core/agent/
   fields/methods the host provides). `EventEmitterMixin`, `ToolFilterMixin`,
   `SteeringMixin`.
 - **Protocols** are named by their role, not with a `Protocol` suffix — matches
-  the stdlib (`Iterable`, `SupportsRead`) and `agent_harness/ports.py`
+  the stdlib (`Iterable`, `SupportsRead`) and `agent_harness/contracts.py`
   (`OutputSink`, `SessionState`). `LoopHost`, not `LoopHostProtocol`.
 - **Do not prefix a type with its own package name.** Inside `core/agent/`, a
   class is `EventEmitterMixin`, not `AgentEventEmitter` — the namespace already

@@ -12,7 +12,7 @@ log = logging.getLogger(__name__)
 
 
 class DefaultTurnAccounting:
-    """:class:`core.agent_harness.ports.TurnAccounting` for non-terminal surfaces."""
+    """:class:`core.agent_harness.contracts.TurnAccounting` for non-terminal surfaces."""
 
     def __init__(self, session: Any, text: str) -> None:
         self._session = session

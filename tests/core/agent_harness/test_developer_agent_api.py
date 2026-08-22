@@ -314,7 +314,7 @@ def test_every_advertised_name_is_a_plain_static_import() -> None:
     from pathlib import Path
 
     import core.agent_harness as root
-    import core.agent_harness.ports as ports
+    import core.agent_harness.contracts as ports
     import core.agent_harness.runtime as runtime
 
     roles = [

@@ -22,7 +22,7 @@ from typing import Any, Protocol
 
 from core.agent import Agent
 from core.agent_harness.agent_builder import AgentConfig, build_agent
-from core.agent_harness.ports import ErrorReporter, SessionState, ToolEventObserver
+from core.agent_harness.contracts import ErrorReporter, SessionState, ToolEventObserver
 from core.agent_harness.prompts.gather import build_gather_system_prompt
 from core.agent_harness.prompts.memory.conversation import (
     NO_HISTORY_PLACEHOLDER,

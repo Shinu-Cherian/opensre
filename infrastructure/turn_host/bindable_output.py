@@ -16,7 +16,7 @@ from infrastructure.turn_host.turn_output import TurnOutput
 
 
 class BindableOutput:
-    """Forwards :class:`~core.agent_harness.ports.OutputSink` calls to the bound destination.
+    """Forwards :class:`~core.agent_harness.contracts.OutputSink` calls to the bound destination.
 
     Explicit methods (not ``__getattr__``) keep the port structurally typed so
     construction sites do not need ``type: ignore``.

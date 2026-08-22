@@ -8,7 +8,7 @@ Both build through ``.agent(tools=…, prompts=…, gather=…)``; hosts never
 construct :class:`HeadlessAgent` directly.
 
 Per-message values are bound on the agent with :meth:`HeadlessAgent.handle`
-(a :class:`~core.agent_harness.ports.TurnBinding`). Process boot
+(a :class:`~core.agent_harness.contracts.TurnBinding`). Process boot
 (``configure_process``) does not build agents.
 """
 
@@ -25,9 +25,7 @@ from rich.console import Console
 
 from core.agent_harness.accounting.run_record import DefaultRunRecordFactory
 from core.agent_harness.agent_build_config import AgentBuildConfig
-from core.agent_harness.error_reporting import DefaultErrorReporter
-from core.agent_harness.llm_resolution import default_llm_factory
-from core.agent_harness.ports import (
+from core.agent_harness.contracts import (
     ErrorReporter,
     LlmFactory,
     OutputSink,
@@ -38,6 +36,8 @@ from core.agent_harness.ports import (
     ToolEventObserver,
     ToolProvider,
 )
+from core.agent_harness.error_reporting import DefaultErrorReporter
+from core.agent_harness.llm_resolution import default_llm_factory
 from core.agent_harness.prompts.grounding import (
     DefaultPromptContextProvider,
     supports_default_prompt_context,

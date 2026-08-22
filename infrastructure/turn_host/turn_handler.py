@@ -28,7 +28,7 @@ from collections.abc import Callable
 from rich.console import Console
 
 from core.agent_harness import SessionCore, SessionManager, TurnResult
-from core.agent_harness.ports import ConfirmFn, SlashPortsFactory, TurnAccounting
+from core.agent_harness.contracts import ConfirmFn, SlashPortsFactory, TurnAccounting
 from core.agent_harness.runtime import AgentBuildConfig, TurnBinding
 from core.agent_harness.spi.cancel import ensure_turn_cancel
 from core.agent_harness.spi.session_goal import (

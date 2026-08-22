@@ -57,7 +57,7 @@
 
   **The codebase is not yet compliant, and no tool will tell you.** An AST scan
   of product code counts 89 docstring-only Protocol methods against **108
-  `raise NotImplementedError` stubs in 23 files** (`core/agent_harness/ports.py`,
+  `raise NotImplementedError` stubs in 23 files** (`core/agent_harness/contracts.py`,
   `infrastructure/harness_providers/`, `gateway/core/storage/session/binding_store.py` and
   others). Those are pre-existing and out of scope for a drive-by — do not
   mass-convert them, and do not cite a file as precedent without checking it.

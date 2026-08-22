@@ -22,7 +22,7 @@ from infrastructure.harness_providers import (
 )
 
 if TYPE_CHECKING:
-    from core.agent_harness.ports import SessionState
+    from core.agent_harness.contracts import SessionState
 
 __all__ = [
     "IntegrationResolutionResult",

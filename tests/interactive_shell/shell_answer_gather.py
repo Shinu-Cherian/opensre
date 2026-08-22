@@ -11,7 +11,7 @@ from typing import Any
 
 from rich.console import Console
 
-from core.agent_harness.ports import AnswerRequest
+from core.agent_harness.contracts import AnswerRequest
 from core.agent_harness.runtime import DefaultHeadlessBuild
 from core.agent_harness.turns.evidence_driver import GatherAgentFactory, gather_tool_evidence
 from core.agent_harness.turns.gather_observation import GatheredEvidence

@@ -44,7 +44,7 @@ def supports_default_prompt_context(session: object) -> bool:
 
 
 class DefaultPromptContextProvider:
-    """:class:`core.agent_harness.ports.PromptContextProvider` over session grounding."""
+    """:class:`core.agent_harness.contracts.PromptContextProvider` over session grounding."""
 
     def __init__(self, session: Any, *, surface: str = "interactive_shell") -> None:
         self._session = session

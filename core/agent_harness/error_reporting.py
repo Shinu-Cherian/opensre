@@ -10,7 +10,7 @@ log = logging.getLogger(__name__)
 
 
 class DefaultErrorReporter:
-    """:class:`core.agent_harness.ports.ErrorReporter` using platform observability."""
+    """:class:`core.agent_harness.contracts.ErrorReporter` using platform observability."""
 
     def __init__(self, logger: logging.Logger | None = None) -> None:
         self._logger = logger or log

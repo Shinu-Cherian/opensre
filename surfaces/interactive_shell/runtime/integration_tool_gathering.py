@@ -16,7 +16,7 @@ from typing import Any, cast
 from rich.console import Console
 from rich.markup import escape
 
-from core.agent_harness.ports import SessionState
+from core.agent_harness.contracts import SessionState
 from core.agent_harness.runtime import GatherPhase
 from surfaces.interactive_shell.session import Session
 from surfaces.interactive_shell.ui import DIM
@@ -137,7 +137,7 @@ def _persist_tool_calls(session: Session, executed: list[tuple[Any, Any]]) -> No
 class ShellGatherProgress:
     """Prints one dim line per gather tool call to the turn's console.
 
-    :class:`~core.agent_harness.ports.ConsoleBindable`: the REPL streams each
+    :class:`~core.agent_harness.contracts.ConsoleBindable`: the REPL streams each
     turn through a fresh spinner-aware console, so ``bind_turn`` retargets it.
     Keyed by display source (PostHog), not MCP method name — ``list_*`` and
     ``call_*`` otherwise both print identical ``· checking Posthog…`` lines.

@@ -18,7 +18,7 @@ from typing import Any
 
 from rich.console import Console
 
-from core.agent_harness.ports import AnswerRequest
+from core.agent_harness.contracts import AnswerRequest
 from core.agent_harness.prompts.assistant import (
     MARKDOWN_RULE,
     TERMINOLOGY_RULE,

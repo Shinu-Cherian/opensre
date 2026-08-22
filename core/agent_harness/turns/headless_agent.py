@@ -22,7 +22,7 @@ from contextlib import contextmanager
 from dataclasses import replace
 
 from core.agent_harness.accounting.turn_accounting import DefaultTurnAccounting
-from core.agent_harness.ports import (
+from core.agent_harness.contracts import (
     AnswerRequest,
     ConfirmFn,
     ConsoleBindable,
@@ -211,7 +211,7 @@ class HeadlessAgent:
         turn (same id, restored state). Cached agents must follow that object
         so tools/prompts see current integrations and chat metadata.
 
-        Every port that implements :class:`~core.agent_harness.ports.SessionBindable`
+        Every port that implements :class:`~core.agent_harness.contracts.SessionBindable`
         is rebound; a session-aware port that lacks the protocol is a type/test
         gap, not a runtime miss.
         """

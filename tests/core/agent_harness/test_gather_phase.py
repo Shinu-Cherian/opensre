@@ -12,7 +12,7 @@ from typing import Any
 
 import pytest
 
-from core.agent_harness.ports import TurnBinding
+from core.agent_harness.contracts import TurnBinding
 from core.agent_harness.turns.gather_phase import GatherPhase
 from core.agent_harness.turns.headless_build import InMemoryHeadlessBuild
 from core.tool.execution import ToolExecutionHooks

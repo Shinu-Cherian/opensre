@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from core.agent_harness.ports import SubprocessPresenterFactory
+    from core.agent_harness.contracts import SubprocessPresenterFactory
 
 
 @dataclass(frozen=True)
