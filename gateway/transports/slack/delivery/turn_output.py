@@ -52,7 +52,7 @@ class SlackTurnOutput:
         tool_hooks: ToolExecutionHooks | None = None,
     ) -> None:
         # Per-turn tool-execution hooks (e.g. the Block Kit approval gate),
-        # read duck-typed by TurnHandler when building the agent.
+        # read duck-typed by TurnRunner when building the agent.
         self.tool_hooks = tool_hooks
         # Set per turn by this transport's dispatcher; the turn handler reads it
         # to give tools a cooperative cancel signal on soft timeout or stop.

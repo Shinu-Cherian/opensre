@@ -10,7 +10,7 @@ Pinned rules (see ``gateway/AGENTS.md``):
 * ``gateway.startup`` may import peer ``*.startup`` (and ``gateway.web``); peers
   must not import channels.
 * ``gateway.core`` names no chat vendor; a transport names only its own.
-* ``infrastructure.scheduling.scheduler`` never imports ``TurnHandler`` (producer, not a
+* ``infrastructure.scheduling.scheduler`` never imports ``TurnRunner`` (producer, not a
   chat channel — see ``gateway/AGENTS.md`` Channel vs producer).
 """
 
@@ -191,7 +191,7 @@ def test_only_the_gateway_facade_imports_the_transport_composer() -> None:
     """
     offenders: list[str] = []
     for path in _python_files("gateway"):
-        rel = str(path.relative_to(REPO_ROOT))
+        rel = path.relative_to(REPO_ROOT).as_posix()
         if rel in ("gateway/startup.py", "gateway/transports/startup.py"):
             continue
         if rel.startswith("gateway/tests/"):
@@ -244,10 +244,10 @@ def test_scheduler_never_imports_the_gateway_turn_handler() -> None:
 
     The gateway process may host ``infrastructure.scheduling.scheduler`` (same capacity gate).
     Runners still enter through ``AgentSession.run_headless_turn``, not
-    ``TurnHandler``. Importing the handler here is how someone "fixes"
+    ``TurnRunner``. Importing the handler here is how someone "fixes"
     the scheduler into a fifth chat channel.
     """
-    banned = ("infrastructure.turn_host.turn_handler",)
+    banned = ("infrastructure.turn_host.turn_runner",)
     offenders = _offenders("infrastructure.scheduling.scheduler", banned)
     for path in _python_files("infrastructure.scheduling.scheduler"):
         if "tests" in path.parts:
@@ -256,9 +256,9 @@ def test_scheduler_never_imports_the_gateway_turn_handler() -> None:
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom):
                 for alias in node.names:
-                    if alias.name == "TurnHandler":
+                    if alias.name == "TurnRunner":
                         rel = path.relative_to(REPO_ROOT)
-                        offenders.append(f"{rel} → TurnHandler")
+                        offenders.append(f"{rel} → TurnRunner")
     assert offenders == [], "scheduler imported the chat turn handler:\n" + "\n".join(offenders)
 
 
@@ -292,7 +292,7 @@ _QUARANTINED_HANDLER_NAMES = frozenset(
 
 
 def test_concurrency_limited_handler_stays_out_of_production_gateway() -> None:
-    """Wave C4: capacity wrapper is tests-only; production uses TurnHandler(gate=)."""
+    """Wave C4: capacity wrapper is tests-only; production uses TurnRunner(gate=)."""
     offenders: list[str] = []
     for path in _python_files("gateway"):
         if "tests" in path.parts:

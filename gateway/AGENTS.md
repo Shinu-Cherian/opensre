@@ -12,7 +12,7 @@ tests tree.
 | Process composition root | `core/lifecycle/controller.py` (`GatewayController`; inject `slash_ports_factory`) |
 | Surface startup (web + chat composer) | `startup.py` (`start_gateway` / `StartedGateway`) |
 | Daemon (pidfile + spawn) | `core/process/supervision.py` — caller passes argv; never names CLI or `surfaces.gateway_entry` |
-| Turn callback | `infrastructure/turn_host/turn_handler.py` |
+| Turn callback | `infrastructure/turn_host/turn_runner.py` |
 | Turn contract (output, callback) | `infrastructure/turn_host/turn_output.py`, `infrastructure/turn_host/turn_callback.py` |
 | Transport registry (name, registration, worker) | `transports/names.py`, `transports/registration.py`, `transports/startup.py` |
 | Turn middleware (decision, policy, approvals, stop, locks) | `core/middleware/` |
@@ -106,7 +106,7 @@ surface may start, stop, or query that process and nothing else. The task
 scheduler is hosted here when this process is the long-lived runner; CLI
 and shell own loop CRUD and call `request_scheduler_reload()` after writes.
 
-The turn service is `TurnHandler`, the middleware steps, and the
+The turn service is `TurnRunner`, the middleware steps, and the
 session-agent pool. A surface never imports that. A surface that runs
 turns is a channel: it implements the `infrastructure.turn_host` turn contract
 and is registered in `gateway.transports`, then handed to the turn
@@ -118,7 +118,7 @@ Two ways work reaches the agent. Mixing them is how a second turn engine appears
 
 | | Has a user and turn output? | Entry |
 |--|------------------------|--------|
-| **Channel** (Slack, Telegram, Discord, Buzz) | Yes | `TurnHandler` — `(text, session, output, logger)` |
+| **Channel** (Slack, Telegram, Discord, Buzz) | Yes | `TurnRunner` — `(text, session, output, logger)` |
 | **Interactive shell** | Yes | *today:* `HeadlessAgent.handle` with `AgentBuildConfig`. *Target:* the **chat** verb, like any other channel — it has a user and turn output, so the rule already covers it. The build config is shared; the turn entry is not yet. |
 | **Producer** (`infrastructure.scheduling.scheduler`, scheduled digest/PR runners) | No | Embed: `AgentSession.run_headless_turn` (and investigation payload runners) |
 
@@ -126,7 +126,7 @@ Agent construction hooks live in `core.agent_harness.agent_build_config.AgentBui
 
 The gateway **process** may host the scheduler (same `process_turn_gate`). That
 does not make the scheduler a channel: `infrastructure.scheduling.scheduler` must not import
-`TurnHandler`. Pinned by
+`TurnRunner`. Pinned by
 `tests/test_package_borders.py::test_scheduler_never_imports_the_gateway_turn_handler`.
 
 `POST /investigate` is the investigation embed verb (`AgentSession.investigate`),
@@ -145,7 +145,7 @@ to hold, not in how hard the work is.
 
 | Verb | Entry | Shape | Gets |
 |------|-------|-------|------|
-| **chat** | `TurnHandler.__call__(text, session, output, logger)` | returns `None`; every result reaches the user through turn output | capacity gate, capability policy, `SessionAgentPool` reuse, approvals, cancel console, identity policy, turn timeout, terminal outcome, at-capacity copy |
+| **chat** | `TurnRunner.__call__(text, session, output, logger)` | returns `None`; every result reaches the user through turn output | capacity gate, capability policy, `SessionAgentPool` reuse, approvals, cancel console, identity policy, turn timeout, terminal outcome, at-capacity copy |
 | **investigate** | `AgentSession.investigate(...)` (the harness Embed API) | returns a payload to the caller | the process capacity gate only |
 
 `POST /investigate` and `InvestigationWorker` use **investigate** and that is
@@ -164,11 +164,11 @@ there is nothing to hand back. A caller that needs the turn's outcome as a
 value — the shell wants `TurnResult` for accounting, the prompt recorder, and
 `final_intent` — is not served by this signature as written. Widening it is a
 contract change for all four transports, so decide it deliberately rather than
-adding a second entry beside `TurnHandler`.
+adding a second entry beside `TurnRunner`.
 
 ## Gateway turn dispatch
 
-Every chat transport uses one `TurnHandler` (optional `gate=` for capacity).
+Every chat transport uses one `TurnRunner` (optional `gate=` for capacity).
 Slack, Discord, and Telegram dispatchers are ingress only: authorize, resolve
 the session, build turn output, then call the shared callback. Do not add a
 second production turn-handler class.
@@ -214,17 +214,17 @@ Two different **in-process** limits — do not conflate them:
 | **Per-transport** | `max_concurrent_turns` (defaults to the same profile limit via `turn_limit_for_profile`; override with `*_GATEWAY_MAX_CONCURRENT`) | Caps how many inbound messages that transport may process in parallel *before* they hit the shared turn handler. Does not replace the process gate. |
 
 ```text
-Telegram/Slack/Discord ──► TurnHandler.try_acquire ──► process_turn_gate()
+Telegram/Slack/Discord ──► TurnRunner.try_acquire ──► process_turn_gate()
 Scheduler (agent + investigate runners) ──► blocking acquire ──► same gate
 POST /investigate ──► try_acquire (busy → 503) ──► same gate
 InvestigationWorker ──► blocking acquire (already claimed) ──► same gate
 ```
 
-Production chat capacity is on `TurnHandler(gate=controller.turn_gate)`.
+Production chat capacity is on `TurnRunner(gate=controller.turn_gate)`.
 `GatewayController` and HTTP investigate share
 :func:`~infrastructure.turn_host.concurrency.process_turn_gate`.
-`ConcurrencyLimitedTurnHandler` is tests-only; production uses `gate=` on
-`TurnHandler` only.
+`ConcurrencyLimitedTurnRunner` is tests-only; production uses `gate=` on
+`TurnRunner` only.
 
 HTTP `POST /investigate` busy-drops like chat. `InvestigationWorker` waits
 like scheduler runners. Chat analytics use `gateway_turn_*` with `surface`
@@ -254,7 +254,7 @@ the loop; true one-shot digests may use `AgentSession.run_headless_turn`.
 ## Host parity (chat surfaces)
 
 Same turn engine for Slack / Telegram / Discord / interactive shell: ingress →
-`TurnHandler` → `SessionAgentPool` → `agent.handle`. Web `POST /investigate` is
+`TurnRunner` → `SessionAgentPool` → `agent.handle`. Web `POST /investigate` is
 a separate verb (`AgentSession.investigate`); see Capacity. Values: **yes** /
 **partial** / **no** / **n/a**.
 

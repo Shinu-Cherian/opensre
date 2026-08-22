@@ -1,6 +1,6 @@
 """Test-only capacity wrapper for arbitrary gateway callbacks.
 
-Production chat uses :class:`~infrastructure.turn_host.turn_handler.TurnHandler`
+Production chat uses :class:`~infrastructure.turn_host.turn_runner.TurnRunner`
 with ``gate=``. This helper stays under ``gateway/tests/`` so it cannot be
 mistaken for a second production turn-handler class (Wave C4 quarantine).
 """

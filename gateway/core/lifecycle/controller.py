@@ -41,7 +41,7 @@ from infrastructure.turn_host.concurrency import (
     set_process_turn_gate,
 )
 from infrastructure.turn_host.turn_callback import TurnCallback
-from infrastructure.turn_host.turn_handler import TurnHandler
+from infrastructure.turn_host.turn_runner import TurnRunner
 
 # The reload watcher only polls a flag, so it should never need the full
 # shutdown budget; cap it so chat workers keep the rest.
@@ -90,7 +90,7 @@ class GatewayController:
         # same object — do not wrap it in a second "turn handler". Action tools
         # resolve per turn from each chat's live session inside the handler.
         console = Console(force_terminal=False)
-        handler = TurnHandler(
+        handler = TurnRunner(
             console=console,
             slash_ports_factory=self._slash_ports_factory,
             agent_build=chat_agent_build_config(),
