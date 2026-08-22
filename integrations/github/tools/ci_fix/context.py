@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass, replace
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
-from infrastructure.safety.masking import MaskingContext, MaskingPolicy
+from infrastructure.safety.masking import MaskingPolicy, MaskingRules
 from integrations.github.repo_scope import detect_git_remote_repo_scope
 from integrations.github.tools.ci_fix.errors import (
     ERR_INVALID_INPUT,
@@ -15,6 +16,11 @@ from integrations.github.tools.ci_fix.errors import (
     GitHubCiFixError,
 )
 from integrations.github.tools.ci_fix.gh import run_gh_json, run_gh_text
+
+if TYPE_CHECKING:
+    from core.llm.types import AgentLLMClient
+
+logger = logging.getLogger(__name__)
 
 _PR_URL_RE = re.compile(
     r"https?://github\.com/"
@@ -249,7 +255,7 @@ def _log_excerpt(raw: str) -> str:
 
 
 def _build_task(ctx: CiFixContext) -> str:
-    masker = MaskingContext(MaskingPolicy.from_env())
+    masker = MaskingRules(MaskingPolicy.from_env())
     lines = [
         f"Fix the failing GitHub Actions CI checks for {ctx.owner}/{ctx.repo} PR #{ctx.number}.",
         "",
