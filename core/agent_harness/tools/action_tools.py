@@ -53,9 +53,6 @@ def _sources_for_view(
     return sources
 
 
-_sources_for_context = _sources_for_view
-
-
 def get_action_tools_from_integrations_view(
     view: IntegrationsView,
     *,
