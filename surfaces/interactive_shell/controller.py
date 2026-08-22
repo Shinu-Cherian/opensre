@@ -19,7 +19,7 @@ from surfaces.interactive_shell.runtime.context import (
     ReplRuntimeContext,
     create_repl_runtime_context,
 )
-from surfaces.interactive_shell.runtime.core.prompt_manager import PromptManager
+from surfaces.interactive_shell.runtime.core.prompt_builder import PromptBuilder
 from surfaces.interactive_shell.runtime.core.state import (
     ReplState,
     SpinnerState,
@@ -183,7 +183,7 @@ class InteractiveShellController:
             color_system="truecolor",
             legacy_windows=False,
         )
-        self.prompt = PromptManager(
+        self.prompt = PromptBuilder(
             self.session,
             self.state,
             self.spinner,

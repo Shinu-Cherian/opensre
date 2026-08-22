@@ -24,7 +24,7 @@ owner module instead of broadening module responsibilities.
   lifecycle), `AgentTurnResources` construction and shutdown, prompt-mediated
   confirmation waiting, turn telemetry, coordination between prompt/background/
   shutdown helpers. Nothing else should own shell lifecycle orchestration.
-- `core/prompt_manager.py` — prompt-toolkit setup, prompt rendering callbacks,
+- `core/prompt_builder.py` — prompt-toolkit setup, prompt rendering callbacks,
   pending prompt defaults, autosubmit handling only.
 - `input/` — prompt input event conversion only: EOF, Ctrl-C, CPR cleanup,
   session resume hints.
