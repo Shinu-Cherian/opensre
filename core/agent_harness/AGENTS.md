@@ -2,7 +2,7 @@
 
 `agent_harness/` is the **decoupled agent harness** for two agent shapes: the
 tool-calling loop (`core.agent.Agent` via `build_agent`) and the direct-answer
-path (`stream_answer` via the `StreamAnswerFn` seam in `ports.py`, no tools).
+path (`stream_answer` via the `StreamAnswerFn` seam in `contracts.py`, no tools).
 It was extracted out of `interactive_shell` so the same harness can run the
 interactive terminal and be invoked headlessly via
 `agent_harness.turns.headless_agent`.
@@ -89,7 +89,7 @@ chat and the interactive shell share `TurnHandler` + `SessionAgentPool`
 reintroduce peer `bootstrap.adapters` copies under surfaces or gateway.
 
 **Bind ports:** session-aware defaults implement
-`SessionBindable` / `ConsoleBindable` / `OutputBindable` (`ports.py`).
+`SessionBindable` / `ConsoleBindable` / `OutputBindable` (`contracts.py`).
 `HeadlessAgent.bind_session` / `bind_turn(console=…, output=…)` only call ports
 that match those Protocols. Gateway usually keeps a stable `BindableOutput` and
 rebinds the transport via `BindableOutput.bind` (no `output=` each turn).
@@ -119,14 +119,14 @@ concurrency or a new `chat` API.
 ## Layout
 
 Top level holds the package's public surface — `__init__.py` (the curated
-re-exports), `ports.py`, `agent_builder.py` — plus two small cross-cutting default
+re-exports), `contracts.py`, `agent_builder.py` — plus two small cross-cutting default
 port impls that fit no single subpackage: `error_reporting.py`
 (`DefaultErrorReporter`) and `llm_resolution.py` (`default_llm_factory` /
 `resolve_provider_models`). Everything else lives in a responsibility-scoped
 subpackage. Default port implementations live with the concern they serve, not in a
 `providers/` package.
 
-- `ports.py` — Protocols the engine talks to (output, confirmation, session
+- `contracts.py` — Protocols the engine talks to (output, confirmation, session
   store, tool provider, prompt-context provider, telemetry, error reporter,
   evidence gatherer). Kept top-level as the central seam imported everywhere.
 - `agent_builder.py` — `AgentConfig` dataclass + `build_agent(config)`. The
@@ -291,7 +291,7 @@ shape; if it answers directly without tools it is the direct-answer shape.
 1. State the shape explicitly (tool-calling vs. direct answer) in the entrypoint
    docstring (three lines max).
 2. Update this file when harness rules change.
-3. Inject through `ports.py` callables (`StreamAnswerFn`, `ExecuteActions`,
+3. Inject through `contracts.py` callables (`StreamAnswerFn`, `ExecuteActions`,
    `EvidenceGatherer`); do not import surface code into `agent_harness/`.
 4. Add or extend shape-guard tests when you introduce a new entrypoint or
    rename a shape seam.
