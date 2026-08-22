@@ -86,8 +86,7 @@ def _collect_python_files(rel_path: str) -> list[Path]:
 @pytest.mark.parametrize("target_path", _TARGET_PATHS)
 def test_no_untyped_callable_any_seams(target_path: str) -> None:
     files = _collect_python_files(target_path)
-    if not files:
-        pytest.skip(f"Target path {target_path} not found")
+    assert files, f"Target path {target_path} not found or contains no Python files"
 
     offenders: list[str] = []
     for path in files:
@@ -95,11 +94,11 @@ def test_no_untyped_callable_any_seams(target_path: str) -> None:
         try:
             tree = ast.parse(source, filename=str(path))
         except SyntaxError as exc:
-            offenders.append(f"{path.relative_to(_REPO_ROOT)}: syntax error: {exc}")
+            offenders.append(f"{path.relative_to(_REPO_ROOT).as_posix()}: syntax error: {exc}")
             continue
 
         for lineno, msg in _find_callable_any_offenses(tree):
-            rel_file = path.relative_to(_REPO_ROOT)
+            rel_file = path.relative_to(_REPO_ROOT).as_posix()
             offenders.append(f"{rel_file}:{lineno}: untyped seam `{msg}`")
 
     count = len(offenders)
