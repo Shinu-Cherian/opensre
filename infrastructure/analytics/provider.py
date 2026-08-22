@@ -25,12 +25,12 @@ import httpx
 from config.constants import get_store_path
 from config.constants.posthog import POSTHOG_CAPTURE_API_KEY, POSTHOG_HOST
 from config.version import get_opensre_version
-from infrastructure.analytics.events import Event
 from infrastructure.analytics.analytics_runtime import (
     detect_analytics_runtime,
     detect_container_runtime,
     is_ci_environment,
 )
+from infrastructure.analytics.events import Event
 from infrastructure.analytics.usage_context import (
     ORGANIZATION_GROUP_TYPE,
     merge_usage_enrichment,
