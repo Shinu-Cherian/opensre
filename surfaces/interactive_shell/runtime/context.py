@@ -96,10 +96,6 @@ class ReplRuntime(BaseModel):
         return self
 
 
-# Backwards compatibility alias for importers.
-ReplRuntimeContext = ReplRuntime
-
-
 def _current_theme_name() -> str:
     from infrastructure.terminal.theme import get_active_theme_name
 
@@ -157,14 +153,9 @@ def create_repl_runtime(
     )
 
 
-create_repl_runtime_context = create_repl_runtime
-
-
 __all__ = [
     "ReplRuntime",
-    "ReplRuntimeContext",
     "SessionBootstrapSpec",
     "create_repl_runtime",
-    "create_repl_runtime_context",
     "prepare_repl_session",
 ]
