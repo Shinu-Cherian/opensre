@@ -189,6 +189,7 @@ jobs:
               tests/packaging
               tests/scheduler
               gateway/tests
+              tests/quality
           # install/ + quickstart/ are opt-in live (CDN/brew/LLM); not PR CI.
           - os: ubuntu-latest
             shard: e2e-general

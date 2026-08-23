@@ -13,6 +13,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.shared.product_sources import product_python_files
+
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # Relative paths to check under the repository root
@@ -82,7 +84,7 @@ def _collect_python_files(rel_path: str) -> list[Path]:
     if full_path.is_file() and full_path.suffix == ".py":
         return [full_path]
     if full_path.is_dir():
-        return sorted(p for p in full_path.rglob("*.py") if not p.name.startswith("test_"))
+        return [p for p in product_python_files(full_path) if not p.name.startswith("test_")]
     return []
 
 
