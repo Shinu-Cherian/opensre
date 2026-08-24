@@ -371,7 +371,7 @@ class TestByteBudgetLineBoundary:
         p = tmp_path / "errs.log"
         line1 = "2026-05-12 00:00:00,000 INFO one: aaa\n"
         line2 = "2026-05-12 00:00:01,000 INFO two: bbb\n"
-        p.write_text(line1 + line2, encoding="utf-8")
+        p.write_bytes((line1 + line2).encode("utf-8"))
         b1 = len(line1.encode("utf-8"))
         monkeypatch.setattr(hermes_poller, "_DEFAULT_MAX_BYTES", b1 + 1)
 
