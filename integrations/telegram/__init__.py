@@ -7,8 +7,17 @@ from typing import Any
 
 from integrations._validation_helpers import report_classify_failure
 from integrations.config_models import TelegramBotConfig
+from integrations.telegram.delivery import truncate_for_telegram_html
+from integrations.telegram.formatting import markdown_to_telegram_html
 
 logger = logging.getLogger(__name__)
+
+__all__ = [
+    "TelegramBotConfig",
+    "classify",
+    "markdown_to_telegram_html",
+    "truncate_for_telegram_html",
+]
 
 
 def classify(

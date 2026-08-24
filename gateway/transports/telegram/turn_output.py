@@ -11,8 +11,10 @@ from gateway.core.single_message_output import (
 from gateway.transports.telegram.poller.client import TelegramBotClient
 from infrastructure.delivery.notifications.limits import MAX_MESSAGE_SIZE
 from infrastructure.text.truncation import truncate
-from integrations.telegram.delivery import truncate_for_telegram_html
-from integrations.telegram.formatting import markdown_to_telegram_html
+from integrations.telegram import (
+    markdown_to_telegram_html,
+    truncate_for_telegram_html,
+)
 
 logger = logging.getLogger("gateway")
 
