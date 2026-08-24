@@ -38,7 +38,6 @@ _ALLOWED: dict[str, frozenset[str]] = {
             "integrations.buzz.client",
             "integrations.slack.formatting",
             "integrations.slack.web_client",
-            "integrations.telegram.formatting",
         }
     ),
     "bootstrap": frozenset(
