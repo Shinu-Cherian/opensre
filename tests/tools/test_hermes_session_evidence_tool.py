@@ -181,9 +181,48 @@ def test_hermes_evidence_mappers_record_catalog_entries() -> None:
     assert isinstance(entries, list)
     sources = {e["source"] for e in entries}
 
-    assert "get_hermes_adapter_catalog" in sources
-    assert "get_hermes_approval_events" in sources
-    assert "get_hermes_audit_trail" in sources
-    assert "get_hermes_config" in sources
-    assert "get_hermes_credential_state" in sources
-    assert "get_hermes_cron_state" in sources
+    assert "hermes_adapter_catalog" in sources
+    assert "hermes_approval_events" in sources
+    assert "hermes_audit_trail" in sources
+    assert "hermes_config" in sources
+    assert "hermes_credential_state" in sources
+    assert "hermes_cron_state" in sources
+
+
+def test_hermes_report_claims_attach_to_catalog_entries() -> None:
+    from types import SimpleNamespace
+
+    from tools.investigation.reporting.context.evidence_catalog import (
+        attach_evidence_to_claims,
+        build_evidence_catalog,
+    )
+
+    evidence: dict[str, Any] = {}
+    merge_tool_evidence(
+        evidence,
+        "get_hermes_adapter_catalog",
+        {
+            "available": True,
+            "messaging_adapters": ["telegram"],
+            "llm_providers": ["bedrock"],
+            "execution_backends": ["local"],
+        },
+        {},
+    )
+
+    ns = SimpleNamespace(
+        evidence=evidence,
+        cloudwatch_region=None,
+        cloudwatch_url=None,
+        grafana_endpoint=None,
+        datadog_site=None,
+    )
+    catalog, source_to_id = build_evidence_catalog(ns)
+    assert "hermes_adapter_catalog" in source_to_id
+
+    display_map = {eid: entry["label"] for eid, entry in catalog.items()}
+    claims = [{"statement": "Adapter listed", "evidence_sources": ["hermes_adapter_catalog"]}]
+    attached = attach_evidence_to_claims(claims, source_to_id, display_map)
+
+    assert attached[0].get("evidence_ids") == [source_to_id["hermes_adapter_catalog"]]
+    assert attached[0].get("evidence_labels") == ["Hermes Adapter Catalog"]

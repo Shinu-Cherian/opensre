@@ -21,7 +21,7 @@ def _map_hermes_adapter_catalog(
     count = len(messaging) + len(llms) + len(backends)
     record_evidence_entry(
         evidence,
-        source="get_hermes_adapter_catalog",
+        source="hermes_adapter_catalog",
         label="Hermes Adapter Catalog",
         summary=f"{count} registered adapters",
     )
@@ -35,7 +35,7 @@ def _map_hermes_approval_events(
     events = output.get("events", [])
     record_evidence_entry(
         evidence,
-        source="get_hermes_approval_events",
+        source="hermes_approval_events",
         label="Hermes Approval Events",
         summary=f"{len(events)} approval events",
     )
@@ -49,7 +49,7 @@ def _map_hermes_audit_trail(
     events = output.get("events", [])
     record_evidence_entry(
         evidence,
-        source="get_hermes_audit_trail",
+        source="hermes_audit_trail",
         label="Hermes Audit Trail",
         summary=f"{len(events)} audit events",
     )
@@ -65,7 +65,7 @@ def _map_hermes_config(
     summary = f"provider={provider}, model={model}" if provider or model else "Hermes configuration"
     record_evidence_entry(
         evidence,
-        source="get_hermes_config",
+        source="hermes_config",
         label="Hermes Configuration",
         summary=summary,
     )
@@ -85,7 +85,7 @@ def _map_hermes_credential_state(
     )
     record_evidence_entry(
         evidence,
-        source="get_hermes_credential_state",
+        source="hermes_credential_state",
         label="Hermes Credential State",
         summary=summary,
     )
@@ -100,7 +100,7 @@ def _map_hermes_cron_state(
     summary = f"schedule={cron}" if cron else "Hermes cron state"
     record_evidence_entry(
         evidence,
-        source="get_hermes_cron_state",
+        source="hermes_cron_state",
         label="Hermes Cron State",
         summary=summary,
     )
