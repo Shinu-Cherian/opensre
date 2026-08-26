@@ -1,6 +1,6 @@
-"""Session-scoped :class:`HeadlessAgent` pool for the turn handler.
+"""Session-scoped :class:`HeadlessAgent` pool for the turn runner.
 
-Keeps agent construction out of :class:`TurnHandler` so the handler
+Keeps agent construction out of :class:`TurnRunner` so the handler
 stays a thin dispatch/finalize orchestrator. Construction goes through
 :meth:`~core.agent_harness.turns.headless_build.DefaultHeadlessBuild.agent`
 once per session — not a second port-construction path.
@@ -22,7 +22,6 @@ from core.agent_harness.runtime import (
     DefaultHeadlessBuild,
     DefaultToolProvider,
     DescribeTool,
-    GatherPhase,
     HeadlessAgent,
     resolve_agent_ports,
 )
@@ -43,7 +42,7 @@ class _ToolStatusObserver:
         if kind != "tool_start":
             return
         tool_name = str(data.get("name") or "").strip()
-        if not tool_name or tool_name == "assistant_handoff":
+        if not tool_name:
             return
         self._output.set_tool_status(
             status_from_tool_start(tool_name, data.get("input"), describe=self._describe)
@@ -70,7 +69,7 @@ class SessionAgentPool:
                 apply_capability_policy=ensure_gateway_capability_policy,
             )
         )
-        # Interactive shell keeps one TurnHandler for the REPL lifetime while
+        # Interactive shell keeps one TurnRunner for the REPL lifetime while
         # /new and /resume rotate session_id in place. When this flag is set,
         # handing out an agent for the live id drops every other cached entry
         # so rotations do not accumulate unreachable agents, outputs, and locks.
@@ -170,14 +169,13 @@ class SessionAgentPool:
                 slash_ports_factory=self._slash_ports_factory,
             )
 
-        tools, prompts, gather = resolve_agent_ports(
+        tools, prompts = resolve_agent_ports(
             build,
             session=session,
             console=self._console,
             logger=logger,
             observer=observer,
             default_tools=default_tools,
-            default_gather=GatherPhase(),
         )
         agent = DefaultHeadlessBuild(
             session=session,
@@ -186,7 +184,7 @@ class SessionAgentPool:
             logger=logger,
             surface="gateway",
             error_reporter=build.error_reporter,
-        ).agent(tools=tools, prompts=prompts, gather=gather)
+        ).agent(tools=tools, prompts=prompts)
         if session_id:
             self._agents[session_id] = agent
         return agent

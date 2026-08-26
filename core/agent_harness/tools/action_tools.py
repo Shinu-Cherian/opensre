@@ -8,10 +8,11 @@ from typing import Any, Protocol
 from core.domain.types.tools import ToolSurface
 from core.tool.contracts import RegisteredTool
 from core.tool.execution import availability_view
-from infrastructure.harness_providers import get_surface_tool_map, get_surface_tools
+from infrastructure.harness_providers import resolve_surface_tool_map, resolve_surface_tools
 from infrastructure.observability.trace.redaction import redact_sensitive
 
 _ACTION_SESSION_SOURCE = "_action_session"
+_EXCLUDED_CHAT_TOOL_NAMES = frozenset({"run_investigation"})
 
 
 class _IntegrationsSessionView(Protocol):
@@ -58,10 +59,16 @@ def get_action_tools_from_integrations_view(
     *,
     resolved_integrations: dict[str, Any] | None = None,
 ) -> list[RegisteredTool]:
-    """Return canonical registered tools available to the action agent."""
+    """Return action and chat tools available to the single turn agent."""
     sources = _sources_for_view(view, resolved_integrations)
     tools: list[RegisteredTool] = []
-    for candidate in get_surface_tools(ToolSurface.ACTION):
+    candidates = {
+        candidate.name: candidate
+        for surface in (ToolSurface.ACTION, ToolSurface.CHAT)
+        for candidate in resolve_surface_tools(surface)
+        if candidate.name not in _EXCLUDED_CHAT_TOOL_NAMES
+    }
+    for candidate in candidates.values():
         try:
             if not candidate.is_available(sources):
                 continue
@@ -79,7 +86,7 @@ get_action_tools_from_integrations_context = get_action_tools_from_integrations_
 
 def get_action_tool(name: str) -> RegisteredTool | None:
     """Return a registered action tool by name."""
-    return get_surface_tool_map(ToolSurface.ACTION).get(name)
+    return resolve_surface_tool_map(ToolSurface.ACTION).get(name)
 
 
 def action_tool_names(tools: Iterable[RegisteredTool]) -> tuple[str, ...]:
