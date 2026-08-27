@@ -35,10 +35,6 @@ class IntegrationsView(Protocol):
         """Session instance exposing configured integrations."""
 
 
-# Backwards compatibility alias for protocol importers.
-IntegrationsContext = IntegrationsView
-
-
 def _sources_for_view(
     view: IntegrationsView,
     resolved_integrations: dict[str, Any] | None,
@@ -81,9 +77,6 @@ def get_action_tools_from_integrations_view(
     return tools
 
 
-get_action_tools_from_integrations_context = get_action_tools_from_integrations_view
-
-
 def get_action_tool(name: str) -> RegisteredTool | None:
     """Return a registered action tool by name."""
     return resolve_surface_tool_map(ToolSurface.ACTION).get(name)
@@ -94,10 +87,8 @@ def action_tool_names(tools: Iterable[RegisteredTool]) -> tuple[str, ...]:
 
 
 __all__ = [
-    "IntegrationsContext",
     "IntegrationsView",
     "action_tool_names",
     "get_action_tool",
-    "get_action_tools_from_integrations_context",
     "get_action_tools_from_integrations_view",
 ]
