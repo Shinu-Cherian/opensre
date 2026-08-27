@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from core.state import InvestigationState
-from infrastructure.harness_providers import resolve_integrations_with_metadata
+from infrastructure.harness_providers import (
+    enrich_resolved_with_repo_scopes,
+    resolve_integrations_with_metadata,
+)
 from infrastructure.observability import get_progress_tracker as get_tracker
 
 
@@ -39,7 +43,24 @@ def _resolve(state: InvestigationState, *, emit_progress: bool) -> dict[str, Any
         fields_updated=["resolved_integrations"],
         message=result.progress_message,
     )
-    return result.resolved_integrations
+    return _enrich_with_repo_scopes(result.resolved_integrations, state)
+
+
+def _enrich_with_repo_scopes(
+    resolved: dict[str, Any],
+    state: InvestigationState,
+) -> dict[str, Any]:
+    """Inject VCS repo scopes (owner/repo) inferred from the alert and environment."""
+    raw_alert = state.get("raw_alert", "")
+    message = raw_alert if isinstance(raw_alert, str) else str(raw_alert)
+    return enrich_resolved_with_repo_scopes(
+        resolved=resolved,
+        message=message,
+        conversation_messages=None,
+        env=os.environ,
+        cwd=None,
+        cached_scopes={},
+    )
 
 
 def _complete_tracker(tracker: Any | None, node_name: str, **kwargs: Any) -> None:

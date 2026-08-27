@@ -31,6 +31,7 @@ def test_resolve_integrations_wraps_platform_result_with_progress(monkeypatch: A
             progress_message="Resolved local integrations from store: ['datadog']",
         ),
     )
+    monkeypatch.setattr(node, "enrich_resolved_with_repo_scopes", lambda **kw: kw["resolved"])
 
     updates = node.resolve_integrations({"org_id": "org-1"})  # type: ignore[arg-type]
 
@@ -58,6 +59,7 @@ def test_resolve_integrations_quiet_skips_progress(monkeypatch: Any) -> None:
             progress_message="Resolved integrations",
         ),
     )
+    monkeypatch.setattr(node, "enrich_resolved_with_repo_scopes", lambda **kw: kw["resolved"])
 
     resolved = node.resolve_integrations_quiet({})  # type: ignore[arg-type]
 
